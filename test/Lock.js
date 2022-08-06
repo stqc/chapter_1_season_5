@@ -89,7 +89,6 @@ it("should easily allow making of new pools but also disallow making of another 
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensBought = (USDSpent-buyTax-fees) * await tokenPool.tokenPerUSD()/1e18;
     let balanceOFOwner=await USD.balanceOf(testAC1.address);
-    
     let USDBalanceOfPool = await USD.balanceOf(poolAddress)/1e18;
     let tokenBalanceOfPool = await TestToken.balanceOf(poolAddress)/1e18;
 
@@ -103,6 +102,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(sbum),18),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought),18)]);
 
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
   })
@@ -131,6 +131,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(USDBalanceOfPool+(USDSpent-fees-buyTax))),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought))]);
     
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
   })
@@ -159,6 +160,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(USDBalanceOfPool+(USDSpent-fees-buyTax))),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought))]);
     
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
   })
@@ -187,6 +189,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(USDBalanceOfPool+(USDSpent-fees-buyTax))),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought))]);
     
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
   })
@@ -212,16 +215,18 @@ it("should easily allow making of new pools but also disallow making of another 
     let tokenBalanceOfPool = await TestToken.balanceOf(poolAddress);
 
     let USDBalanceOFAdmin = await USD.balanceOf(Factory.address);
-
+    console.log(USDBalanceOFAdmin,fees);
     await TestToken.connect(testAC5).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await USD.connect(testAC5).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await tokenPool.connect(testAC5).sellToken(TokensToSell);
     await expect(USD.balanceOf(testAC5.address))==await USD.balanceOf(testAC5.address)+amountOfTokensSold;
-    await expect(USD.balanceOf(Factory.address)==USDBalanceOFAdmin+fees);
+    await expect(USD.balanceOf(Factory.address)==ethers.utils.parseUnits(String(USDBalanceOFAdmin+fees),18));
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     await expect(USD.balanceOf(testAC1.address)==(balanceOFOwner+saleTax));
     await expect(tokenPool.showPoolBalance()==[String(USDBalanceOfPool+(TokensToSell-fees-saleTax)),String(tokenBalanceOfPool+amountOfTokensSold)]);
     
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
 
@@ -252,6 +257,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.showPoolBalance()==[String(USDBalanceOfPool+(TokensToSell-fees-saleTax)),String(tokenBalanceOfPool+amountOfTokensSold)]);
     
     console.log(await tokenPool.showPoolBalance())
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
     
@@ -285,6 +291,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect (tokenPool.connect(deployer).addLiquidity(String(tokenPrice),String(1e18))).to.be.revertedWith("You are not the project owner");
     console.log(await tokenPool.tokenPerUSD()/1e18+" Tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per token");
+    
   })
 
   it("should not allow to change beneficiery from the pool directly",async ()=>{
@@ -364,6 +371,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await Factory.connect(deployer).approveEmergencyWithdraw(poolAddress);
     await expect(USD.balanceOf(poolAddress)==0 && TestToken.balanceOf(poolAddress)==0);
     await expect(USD.balanceOf(testAC2)==balUSDofOwner+balOFUSDPool && TestToken.balanceOf(testAC2)==balTokenOfOwner+balOftokenPool)
+    console.log("$"+await USD.balanceOf(Factory.address)/1e18);
   })
 
   it("should fail swapping when the LP is removed", async()=>{

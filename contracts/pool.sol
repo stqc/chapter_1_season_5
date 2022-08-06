@@ -155,9 +155,9 @@ contract pool is poolMethods{
 
         uint256 finalUSDToGive = (amount.mul(USDperToken));    
 
-        BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken).div(10**18)));
+        BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken)).div(10**18));
        
-        BUSD.transfer(admin,(platformTax.mul(USDperToken).div(10**18)));
+        BUSD.transfer(admin,(platformTax.mul(USDperToken)).div(10**18));
        
         
         BUSD.transfer(msg.sender,finalUSDToGive.div(10**18));
