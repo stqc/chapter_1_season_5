@@ -23,7 +23,6 @@ contract pool is poolMethods{
     address public factory;
     bool public priceSet=false;
     uint256 platformFee;
-    uint256 LPFee;
     mapping(address=>bool) public emergencyWithdrawApproved;
     bool isActive =false;
     uint256 emergencyWithdrawSigned=0;
@@ -105,34 +104,23 @@ contract pool is poolMethods{
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
-        (platformFee,LPFee) = fact.showFees();
-        
-        
-        if(buyTax>0){
-            platformFee+=LPFee;
-            LPFee =0;
-        }
+        platformFee = fact.showFees();
 
         uint256 TokenPerUSD = tokenPerUSD();
         
-        uint256 feeForPlatform = (amount.mul(platformFee)).div(10000);
-        uint256 feeForBeneficiery =(amount.mul(LPFee)).div(10000);
-
-        amount = amount.sub(feeForBeneficiery).sub(feeForPlatform);
-
         uint256 taxFromTheBuy = (amount.mul(buyTax)).div(100);
 
         amount = amount.sub(taxFromTheBuy);
 
+        uint256 platformTax =(taxFromTheBuy.mul(platformFee)).div(100);
+
+        taxFromTheBuy = taxFromTheBuy.sub(platformTax);
+
         uint256 finalTokensGiven = amount.mul(TokenPerUSD);
 
         BUSD.transferFrom(msg.sender,address(this),amount);
-        
-
-        BUSD.transferFrom(msg.sender,admin,feeForPlatform);
-        BUSD.transferFrom(msg.sender,beneficiery,feeForBeneficiery);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
-
+        BUSD.transferFrom(msg.sender, admin, platformTax);
         token.transfer(msg.sender,finalTokensGiven.div(10**18));
         
 
@@ -153,36 +141,23 @@ contract pool is poolMethods{
 
         token.transferFrom(msg.sender,address(this),amount);
         
-        (platformFee,LPFee) = fact.showFees();
-        if(saleTax>0){
-            platformFee+=LPFee;
-            LPFee =0;
-        }
-
+        platformFee = fact.showFees();
+        
         uint256 USDperToken = USDPerToken();
-
-        uint256 feeForPlatform = (amount.mul(platformFee)).div(10000);
-        uint256 feeForBeneficiery =(amount.mul(LPFee)).div(10000);
-
-        amount = amount.sub(feeForBeneficiery).sub(feeForPlatform);
 
         uint256 taxFromTheSell = (amount.mul(saleTax)).div(100);
 
         amount = amount.sub(taxFromTheSell);
 
-        uint256 finalUSDToGive = (amount.mul(USDperToken));
+        uint256 platformTax = (taxFromTheSell.mul(platformFee)).div(100);
 
-        BUSD.transfer(beneficiery,(feeForBeneficiery.mul(USDperToken)).div(10**18));
-        
-       
+        taxFromTheSell = taxFromTheSell.sub(platformTax);
 
-        BUSD.transfer(admin,(feeForPlatform.mul(USDperToken)).div(10**18));
-       
-        
+        uint256 finalUSDToGive = (amount.mul(USDperToken));    
 
         BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken).div(10**18)));
        
-
+        BUSD.transfer(admin,(platformTax.mul(USDperToken).div(10**18)));
        
         
         BUSD.transfer(msg.sender,finalUSDToGive.div(10**18));

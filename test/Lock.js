@@ -38,7 +38,7 @@ describe("BetterSwap", async ()=> {
         await deployer_1.transfer(accounts[i].address,String(num));
       }
         await expect(Factory.connect(testAC1).setUSD(TestToken.address)).to.be.revertedWith("You are not the admin");
-        await expect(Factory.connect(testAC1).setFees(100,234)).to.be.revertedWith("You are not the admin");
+        await expect(Factory.connect(testAC1).setFees(100)).to.be.revertedWith("You are not the admin");
         await expect( Factory.connect(testAC1).changeAdmin(TestToken.address)).to.be.revertedWith('You are not the admin')
         }
     
@@ -82,8 +82,9 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 500;
-    let fees = 500*0.5/100;
     let buyTax = 500*10/100;
+    let fees = buyTax*10/100;
+    buyTax-=fees;
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensBought = (USDSpent-buyTax-fees) * await tokenPool.tokenPerUSD()/1e18;
@@ -96,9 +97,9 @@ it("should easily allow making of new pools but also disallow making of another 
     await USD.connect(testAC2).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await tokenPool.connect(testAC2).buyToken(ethers.utils.parseUnits(String(USDSpent),18));
     await expect(TestToken.balanceOf(testAC2.address))==ethers.utils.parseUnits(String(amountOfTokensBought),18);
-    await expect(USD.balanceOf(Factory.address)==ethers.utils.parseUnits("2.5",18));
+    await expect(USD.balanceOf(Factory.address)==ethers.utils.parseUnits(String(fees),18));
     await expect(USD.balanceOf(testAC1.address)==ethers.utils.parseUnits(String(balanceOFOwner+buyTax),18));
-    let sbum = USDBalanceOfPool+USDSpent-fees-buyTax;
+    let sbum = USDBalanceOfPool+USDSpent-buyTax-fees;
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(sbum),18),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought),18)]);
 
     console.log(await tokenPool.showPoolBalance())
@@ -108,8 +109,9 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 1256;
-    let fees = 1256*0.5/100;
     let buyTax = 1256*10/100;
+    let fees = buyTax*10/100;
+    buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensBought = (USDSpent-buyTax-fees) * await tokenPool.tokenPerUSD()/1e18;
@@ -135,8 +137,9 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 9500;
-    let fees = USDSpent*0.5/100;
     let buyTax = USDSpent*10/100;
+    let fees = buyTax*10/100;
+    buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensBought = (USDSpent-buyTax-fees) * await tokenPool.tokenPerUSD()/1e18;
@@ -162,8 +165,9 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 15000;
-    let fees = USDSpent*0.5/100;
     let buyTax = USDSpent*10/100;
+    let fees = buyTax*10/100;
+    buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensBought = (USDSpent-buyTax-fees) * await tokenPool.tokenPerUSD()/1e18;
@@ -196,8 +200,9 @@ it("should easily allow making of new pools but also disallow making of another 
   it("should allow selling of the tokens bought taking 0.5% fee (if there is just a sale tax) along with the sale tax",async()=>{
     
     let TokensToSell = 100;
-    let fees = TokensToSell*0.5/100;
     let saleTax = TokensToSell*10/100;
+    let fees = saleTax*10/100;
+    saleTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensSold = (TokensToSell-saleTax-fees) * await tokenPool.USDPerToken()/1e18;
@@ -225,8 +230,9 @@ it("should easily allow making of new pools but also disallow making of another 
   it("should allow selling of the tokens bought taking 0.25% fee (if there is just a sale tax) along with the sale tax",async()=>{
     
     let TokensToSell = 1000;
-    let fees = TokensToSell*0.5/100;
     let saleTax = TokensToSell*10/100;
+    let fees = saleTax*10/100;
+    saleTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     let amountOfTokensSold = (TokensToSell-saleTax-fees) * await tokenPool.USDPerToken()/1e18;
