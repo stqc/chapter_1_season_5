@@ -11,6 +11,14 @@ import "./betterFactoryInterface.sol";
 contract pool is poolMethods{
     using SafeMath for uint256;
 
+    struct OHLC{
+        uint256 time;
+        uint256 Open;
+        uint256 Low;
+        uint256 High;
+        uint256 Close;
+    }
+
     address public beneficiery;
     uint256 public tokenInPool;
     uint256 public USDinPool;
@@ -27,6 +35,10 @@ contract pool is poolMethods{
     bool isActive =false;
     uint256 emergencyWithdrawSigned=0;
     factoryMethod immutable fact;
+
+    OHLC [] _1MinData;
+    OHLC [] _1HourData;
+    OHLC [] _1DayData;
 
     constructor(address token, address beneficieryA,uint256 buy, uint256 sale, address usd,address factoryAdd, address admin_){
         tokenAddress =token;
@@ -65,7 +77,30 @@ contract pool is poolMethods{
         _;
         isActive =false;
     }
+    function showTradeData(uint256 time) external view returns( OHLC [] memory){
+        if(time==1){
+            OHLC [] memory data = new OHLC[](_1MinData.length);
+            for(uint256 i=0; i<_1MinData.length;i++){
+                data[i]=_1MinData[i];
+            }
+            return data;
+        }
+        if(time==60){
+            OHLC [] memory data = new OHLC[](_1HourData.length);
+            for(uint256 i=0; i<_1HourData.length;i++){
+                data[i]=_1HourData[i];
+            }
+            return data;
+        }
+        if(time==24){
+            OHLC [] memory data = new OHLC[](_1DayData.length);
+            for(uint256 i=0; i<_1DayData.length;i++){
+                data[i]=_1DayData[i];
+            }
+            return data;
+        }
 
+    }
     function showTokenAddress() external view override returns(address){
         return tokenAddress;
     }//show the address of the token of the pool
