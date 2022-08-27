@@ -35,7 +35,7 @@ contract pool is poolMethods{
     bool isActive =false;
     uint256 emergencyWithdrawSigned=0;
     factoryMethod immutable fact;
-
+    OHLC m;
     OHLC [] _1MinData;
     OHLC [] _1HourData;
     OHLC [] _1DayData;
@@ -49,6 +49,14 @@ contract pool is poolMethods{
         BUSDAddress =usd;
         fact = factoryMethod(factory);
         admin = admin_;
+        m.Close=0;
+        m.High=0;
+        m.Low=0;
+        m.Open=0;
+        m.time=0;
+        _1DayData.push(m);
+        _1HourData.push(m);
+        _1MinData.push(m);
     }
 
     modifier onlyAdminAndProjectOwner{
@@ -129,7 +137,58 @@ contract pool is poolMethods{
             IBEP20(tokenAddress).transfer(admin, remainder);
         }
     }
+    function update1mChart(uint256 time, uint256 USDPricee) internal{
+        uint256 len = _1MinData.length-1;
+        OHLC memory current =  _1MinData[len];
+        if(time-current.time>1 minutes){
+            current.time = time;
+            current.Open = USDPricee;
+            current.Close = USDPricee;
+            current.Low = USDPricee;
+            current.High = USDPricee;
+            _1MinData.push(current);
+        }else{
+            _1MinData[len].Close=USDPricee;
+            _1MinData[len].Low>USDPricee?_1MinData[len].Low=USDPricee:_1MinData[len].Low=_1MinData[len].Low;
+            _1MinData[len].High<USDPricee?_1MinData[len].High=USDPricee:_1MinData[len].High=_1MinData[len].High;
+        }
+    }
 
+    function update1hChart(uint256 time, uint256 USDPricee) internal { 
+         uint256 len = _1HourData.length-1;
+        OHLC memory current =  _1HourData[len];
+        if(time-current.time>1 hours){
+            current.time = time;
+            current.Open = USDPricee;
+            current.Close = USDPricee;
+            current.Low = USDPricee;
+            current.High = USDPricee;
+            _1HourData.push(current);
+        }else{
+            _1HourData[len].Close=USDPricee;
+            _1HourData[len].Low>USDPricee?_1HourData[len].Low=USDPricee:_1HourData[len].Low=_1HourData[len].Low;
+            _1HourData[len].High<USDPricee?_1HourData[len].High=USDPricee:_1HourData[len].High=_1HourData[len].High;
+        }
+
+    }
+
+    function update1dChart(uint256 time, uint256 USDPricee) internal {
+
+         uint256 len = _1DayData.length-1;
+        OHLC memory current =  _1DayData[len];
+        if(time-current.time>1 minutes){
+            current.time = time;
+            current.Open = USDPricee;
+            current.Close = USDPricee;
+            current.Low = USDPricee;
+            current.High = USDPricee;
+            _1DayData.push(current);
+        }else{
+            _1DayData[len].Close=USDPricee;
+            _1DayData[len].Low>USDPricee?_1DayData[len].Low=USDPricee:_1DayData[len].Low=_1DayData[len].Low;
+            _1DayData[len].High<USDPricee?_1DayData[len].High=USDPricee:_1DayData[len].High=_1DayData[len].High;
+        }
+    }
     function buyToken(uint256 amount) external override occupied{
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
@@ -162,6 +221,9 @@ contract pool is poolMethods{
         USDinPool=BUSD.balanceOf(address(this));
         tokenInPool = token.balanceOf(address(this));
 
+        update1dChart(block.timestamp,USDPerToken());
+        update1hChart(block.timestamp, USDPerToken());
+        update1mChart(block.timestamp, USDPerToken());
 
     } //buy the token from the said pool
 
@@ -200,7 +262,9 @@ contract pool is poolMethods{
         USDinPool=BUSD.balanceOf(address(this));
         tokenInPool = token.balanceOf(address(this));
 
-
+        update1dChart(block.timestamp,USDPerToken());
+        update1hChart(block.timestamp, USDPerToken());
+        update1mChart(block.timestamp, USDPerToken());
     } //sell the token back to said pool
 
     function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner occupied {
