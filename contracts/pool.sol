@@ -176,7 +176,7 @@ contract pool is poolMethods{
 
          uint256 len = _1DayData.length-1;
         OHLC memory current =  _1DayData[len];
-        if(time-current.time>1 minutes){
+        if(time-current.time>1 days){
             current.time = time;
             current.Open = USDPricee;
             current.Close = USDPricee;
