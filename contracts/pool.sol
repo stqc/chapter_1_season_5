@@ -176,7 +176,7 @@ contract pool is poolMethods{
 
          uint256 len = _1DayData.length-1;
         OHLC memory current =  _1DayData[len];
-        if(time-current.time>1 minutes){
+        if(time-current.time>1 days){
             current.time = time;
             current.Open = USDPricee;
             current.Close = USDPricee;
@@ -189,6 +189,7 @@ contract pool is poolMethods{
             _1DayData[len].High<USDPricee?_1DayData[len].High=USDPricee:_1DayData[len].High=_1DayData[len].High;
         }
     }
+    
     function buyToken(uint256 amount) external override occupied{
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
