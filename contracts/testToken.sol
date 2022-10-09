@@ -353,10 +353,10 @@ contract BEP20Ethereum is Context, IBEP20, Ownable {
   string public _name;
 
   constructor() public {
-    _name = "Ethereum Token";
-    _symbol = "ETH";
+    _name = "Better Token";
+    _symbol = "BET";
     _decimals = 18;
-    _totalSupply = 300000000000000000000000000000 * 10**18;
+    _totalSupply = 300000000 * 10**18;
     _balances[msg.sender] = _totalSupply;
 
     emit Transfer(address(0), msg.sender, _totalSupply);
