@@ -40,6 +40,9 @@ contract pool is poolMethods{
     OHLC [] _1HourData;
     OHLC [] _1DayData;
 
+    event tokenTraded();
+
+
     constructor(address token, address beneficieryA,uint256 buy, uint256 sale, address usd,address factoryAdd, address admin_){
         tokenAddress =token;
         beneficiery = beneficieryA;
@@ -226,6 +229,7 @@ contract pool is poolMethods{
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
 
+        emit tokenTraded();
     } //buy the token from the said pool
 
     function sellToken(uint256 amount) override external occupied {
@@ -266,6 +270,8 @@ contract pool is poolMethods{
         update1dChart(block.timestamp,USDPerToken());
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
+
+        emit tokenTraded();
     } //sell the token back to said pool
 
     function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner occupied {
