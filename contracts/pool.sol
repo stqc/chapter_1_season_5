@@ -213,8 +213,18 @@ contract pool is poolMethods{
         uint256 platformTax =(taxFromTheBuy.mul(platformFee)).div(100);
 
         taxFromTheBuy = taxFromTheBuy.sub(platformTax);
+        
 
-        uint256 finalTokensGiven = amount.mul(TokenPerUSD);
+        uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).add(amount);
+        
+        uint256 potentialTokensGiven = amount.mul(TokenPerUSD);
+
+        uint256 potentialPoolBalanceToken = token.balanceOf(address(this)).sub(potentialTokensGiven.div(10**18));
+
+        uint256 priceAdjustedTokensPerUSD = (potentialPoolBalanceToken.mul(10**18)).div(potentialPoolBalanceUSD);
+
+        uint256 finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);
+        
 
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
@@ -255,7 +265,13 @@ contract pool is poolMethods{
 
         taxFromTheSell = taxFromTheSell.sub(platformTax);
 
-        uint256 finalUSDToGive = (amount.mul(USDperToken));    
+        uint256 potentialUSDToGive = (amount.mul(USDperToken));
+
+        uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).sub(potentialUSDToGive.div(10**18));
+
+        uint256 priceAdjustedUSDperToken = (potentialPoolBalanceUSD.mul(10**18)).div(token.balanceOf(address(this)));
+
+        uint256 finalUSDToGive = (amount.mul(priceAdjustedUSDperToken));    
 
         BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken)).div(10**18));
        
@@ -311,7 +327,7 @@ contract pool is poolMethods{
         return beneficiery;
     }
 
-    function changeBeneficieryAddress(address ben) external onlyAdmin{
+    function changeBeneficieryAddress(address ben) override external onlyAdmin{
         beneficiery=ben;
     }
 

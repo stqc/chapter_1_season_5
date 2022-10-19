@@ -4,10 +4,10 @@ const { ethers } = require("hardhat");
 var deployer, testAC1, testAC2, testAC3, testAC4, testAC5, testAC6, testAC7,testAC8;
 var deployer_, testAC1_, testAC2_, testAC3_, testAC4_, testAC5_, testAC6_, testAC7_,testAC8_;
 
-var factoryABI= require("/home/prateek/Desktop/betterSwap/artifacts/contracts/betterSwapFacory.sol/betterSwapFactory.json");
-var poolABI= require("/home/prateek/Desktop/betterSwap/artifacts/contracts/pool.sol/pool.json");
-var ibep20ABI = require("/home/prateek/Desktop/betterSwap/artifacts/contracts/bep20.sol/IBEP20.json");
-var tokenABI = require("/home/prateek/Desktop/betterSwap/artifacts/contracts/USD.sol/USD.json");
+var factoryABI= require("/home/prateekdang/betterSwap/artifacts/contracts/betterSwapFacory.sol/betterSwapFactory.json");
+var poolABI= require("/home/prateekdang/betterSwap/artifacts/contracts/pool.sol/pool.json");
+var ibep20ABI = require("/home/prateekdang/betterSwap/artifacts/contracts/bep20.sol/IBEP20.json");
+var tokenABI = require("/home/prateekdang/betterSwap/artifacts/contracts/USD.sol/USD.json");
 const { Test, test } = require("mocha");
 
 
