@@ -38,7 +38,7 @@ describe("BetterSwap", async ()=> {
         await deployer_1.transfer(accounts[i].address,String(num));
       }
         await expect(Factory.connect(testAC1).setUSD(TestToken.address)).to.be.revertedWith("You are not the admin");
-        await expect(Factory.connect(testAC1).setFees(100)).to.be.revertedWith("You are not the admin");
+        await expect(Factory.connect(testAC1).setFees(100,90)).to.be.revertedWith("You are not the admin");
         await expect( Factory.connect(testAC1).changeAdmin(TestToken.address)).to.be.revertedWith('You are not the admin')
         }
     

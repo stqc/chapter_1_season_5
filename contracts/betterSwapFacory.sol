@@ -14,10 +14,12 @@ contract betterSwapFactory is factoryMethod{
      address[] public allTokens;
      address public usd;
      uint256 public Platformfee;
+     uint256 public PlatformfeeOnNoTax;
 
     constructor(){
         admin = msg.sender;
         Platformfee = 10;
+        PlatformfeeOnNoTax=5;
     }
 
  
@@ -31,8 +33,8 @@ contract betterSwapFactory is factoryMethod{
         usd = add;
     }
     
-    function showFees()external view override returns(uint256){
-        return Platformfee;
+    function showFees()external view override returns(uint256,uint256){
+        return (Platformfee,PlatformfeeOnNoTax);
     }
 
     function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax) external override{
@@ -44,9 +46,10 @@ contract betterSwapFactory is factoryMethod{
 
     }
 
-    function setFees(uint256 Pfee) external{
+    function setFees(uint256 Pfee, uint256 noTaxFee) external{
         require(msg.sender==admin,"You are not the admin");
         Platformfee =Pfee;
+        PlatformfeeOnNoTax=noTaxFee;
     }
 
     function approveEmergencyWithdraw(address poolAdd) external{

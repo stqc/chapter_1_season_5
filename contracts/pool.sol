@@ -1,5 +1,5 @@
-pragma solidity ^0.8.0;
 //SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.0;
 
 
 import "./poolMethods.sol";
@@ -31,6 +31,7 @@ contract pool is poolMethods{
     address public factory;
     bool public priceSet=false;
     uint256 platformFee;
+    uint256 PlatformfeeOnNoTax;
     mapping(address=>bool) public emergencyWithdrawApproved;
     bool isActive =false;
     uint256 emergencyWithdrawSigned=0;
@@ -202,7 +203,7 @@ contract pool is poolMethods{
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
-        platformFee = fact.showFees();
+        (platformFee,PlatformfeeOnNoTax) = fact.showFees();
 
         uint256 TokenPerUSD = tokenPerUSD();
         
@@ -214,6 +215,10 @@ contract pool is poolMethods{
 
         taxFromTheBuy = taxFromTheBuy.sub(platformTax);
         
+         if(buyTax==0){
+            platformTax = (amount.mul(PlatformfeeOnNoTax)).div(1000);
+            amount=amount.sub(platformTax);
+        }
 
         uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).add(amount);
         
@@ -225,6 +230,7 @@ contract pool is poolMethods{
 
         uint256 finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);
         
+       
 
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
@@ -253,7 +259,7 @@ contract pool is poolMethods{
 
         token.transferFrom(msg.sender,address(this),amount);
         
-        platformFee = fact.showFees();
+        (platformFee,PlatformfeeOnNoTax) = fact.showFees();
         
         uint256 USDperToken = USDPerToken();
 
@@ -264,6 +270,11 @@ contract pool is poolMethods{
         uint256 platformTax = (taxFromTheSell.mul(platformFee)).div(100);
 
         taxFromTheSell = taxFromTheSell.sub(platformTax);
+
+        if(saleTax==0){
+            platformTax = (amount.mul(PlatformfeeOnNoTax)).div(1000);
+            amount=amount.sub(platformTax);
+        }
 
         uint256 potentialUSDToGive = (amount.mul(USDperToken));
 
