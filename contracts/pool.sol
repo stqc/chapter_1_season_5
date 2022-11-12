@@ -231,11 +231,10 @@ contract pool is poolMethods{
         uint256 finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);
         
        
-
+        token.transfer(msg.sender,finalTokensGiven.div(10**18));
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
         BUSD.transferFrom(msg.sender, admin, platformTax);
-        token.transfer(msg.sender,finalTokensGiven.div(10**18));
         
 
         USDinPool=BUSD.balanceOf(address(this));
@@ -301,7 +300,7 @@ contract pool is poolMethods{
         emit tokenTraded();
     } //sell the token back to said pool
 
-    function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner occupied {
+    function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner {
         
         if(priceSet){
             
@@ -359,30 +358,6 @@ contract pool is poolMethods{
 
     }// allow emergency withdrawl of Liquidity
 
-    function addLPfromPresale(uint256 tokenAmount,uint256 USDAmount) external onlyPresale occupied{
-
-         if(priceSet){
-            
-            uint256 tokensRequired = USDAmount.mul(tokenPerUSD());
-            
-            require(tokenAmount==tokensRequired,"Token to USD ratio missmatch");
-        }
-
-         IBEP20 token = IBEP20(tokenAddress);
-         IBEP20 BUSD = IBEP20(BUSDAddress);
-
-        token.transferFrom(msg.sender,address(this),tokenAmount);
-        tokenInPool=token.balanceOf(address(this));
-
-        BUSD.transferFrom(msg.sender,address(this),USDAmount);
-        USDinPool = BUSD.balanceOf(address(this));
-        
-        if(!priceSet){
-            priceSet=true;
-        }
-
-
-
-    }
+    
 }
 
