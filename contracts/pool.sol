@@ -235,7 +235,8 @@ contract pool is poolMethods{
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
         BUSD.transferFrom(msg.sender, admin, platformTax);
-        
+        token.transfer(msg.sender,finalTokensGiven.div(10**18));
+ 
 
         USDinPool=BUSD.balanceOf(address(this));
         tokenInPool = token.balanceOf(address(this));
