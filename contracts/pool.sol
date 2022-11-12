@@ -1,6 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
-
+pragma solidity >=0.8.0;
 
 
 import "./poolMethods.sol";
@@ -195,7 +194,7 @@ contract pool is poolMethods{
         }
     }
     
-    function buyToken(uint256 amount) external override {
+    function buyToken(uint256 amount) external override occupied{
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
@@ -249,7 +248,7 @@ contract pool is poolMethods{
         emit tokenTraded();
     } //buy the token from the said pool
 
-    function sellToken(uint256 amount) override external  {
+    function sellToken(uint256 amount) override external occupied {
         require(amount.mul(USDPerToken()).div(10**18)<(USDinPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
@@ -258,9 +257,8 @@ contract pool is poolMethods{
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
-        tokenInPool = token.balanceOf(address(this)).add(amount);
         token.transferFrom(msg.sender,address(this),amount);
-
+        
         (platformFee,PlatformfeeOnNoTax) = fact.showFees();
         
         uint256 USDperToken = USDPerToken();
@@ -294,6 +292,7 @@ contract pool is poolMethods{
         BUSD.transfer(msg.sender,finalUSDToGive.div(10**18));
 
         USDinPool=BUSD.balanceOf(address(this));
+        tokenInPool = token.balanceOf(address(this));
 
         update1dChart(block.timestamp,USDPerToken());
         update1hChart(block.timestamp, USDPerToken());
@@ -302,7 +301,7 @@ contract pool is poolMethods{
         emit tokenTraded();
     } //sell the token back to said pool
 
-    function addLiquidity(uint256 tokenAmount, uint256 USDAmount)  external onlyProjectOwner  {
+    function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner occupied {
         
         if(priceSet){
             
