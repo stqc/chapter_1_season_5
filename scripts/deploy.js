@@ -7,18 +7,26 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
+  // const currentTimestampInSeconds = Math.round(Date.now() / 1000);
+  // const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
+  // const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
 
-  const lockedAmount = hre.ethers.utils.parseEther("1");
+  // const lockedAmount = hre.ethers.utils.parseEther("1");
 
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  // const Lock = await hre.ethers.getContractFactory("Lock");
+  // const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
 
-  await lock.deployed();
+  // await lock.deployed();
 
-  console.log("Lock with 1 ETH deployed to:", lock.address);
+  // const betterSwapFactory = await hre.ethers.getContractFactory("betterSwapFactory");
+  // const bs=await (await betterSwapFactory.deploy()).deployed();
+  // const USD = await hre.ethers.getContractFactory("USD");
+  // const usd =await (await USD.deploy()).deployed();
+  // console.log("BetterSwap Factory Address", bs.address, bs.admin());
+
+  var acc1,acc2 = hre.getSigners();
+  console.log(acc1,acc2);
+  // console.log("USD address ", usd.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
