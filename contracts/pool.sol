@@ -253,7 +253,8 @@ contract pool is poolMethods{
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
         token.transferFrom(msg.sender,address(this),amount);
-        
+        tokenInPool = token.balanceOf(address(this));
+
         (platformFee,PlatformfeeOnNoTax) = fact.showFees();
         
         uint256 USDperToken = USDPerToken();
@@ -302,7 +303,9 @@ contract pool is poolMethods{
             
             uint256 tokensRequired = USDAmount.mul(tokenPerUSD());
             
-            require(tokenAmount==tokensRequired.div(10**18),"Token to USD ratio missmatch");
+            // require(tokenAmount==tokensRequired.div(10**18),"Token to USD ratio missmatch");
+
+            tokenAmount = tokensRequired.div(10**18);
         }
 
          IBEP20 token = IBEP20(tokenAddress);
