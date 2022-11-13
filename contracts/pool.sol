@@ -83,12 +83,6 @@ contract pool is poolMethods{
         _;
     }
 
-    modifier occupied{
-        require(!isActive,"A transaction is already in process please wait");
-        isActive=true;
-        _;
-        isActive =false;
-    }
     function showTradeData(uint256 time) external view returns( OHLC [] memory){
         if(time==1){
             OHLC [] memory data = new OHLC[](_1MinData.length);
@@ -194,7 +188,7 @@ contract pool is poolMethods{
         }
     }
     
-    function buyToken(uint256 amount) external override occupied{
+    function buyToken(uint256 amount) external override {
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
@@ -231,7 +225,6 @@ contract pool is poolMethods{
         uint256 finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);
         
        
-        token.transfer(msg.sender,finalTokensGiven.div(10**18));
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
         BUSD.transferFrom(msg.sender, admin, platformTax);
@@ -248,7 +241,7 @@ contract pool is poolMethods{
         emit tokenTraded();
     } //buy the token from the said pool
 
-    function sellToken(uint256 amount) override external occupied {
+    function sellToken(uint256 amount) override external  {
         require(amount.mul(USDPerToken()).div(10**18)<(USDinPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
@@ -342,7 +335,7 @@ contract pool is poolMethods{
         beneficiery=ben;
     }
 
-    function approveEmergencyWithdraw() external override onlyAdminAndProjectOwner occupied {
+    function approveEmergencyWithdraw() external override onlyAdminAndProjectOwner  {
         require(!emergencyWithdrawApproved[msg.sender],"You have already voted");
         emergencyWithdrawApproved[msg.sender]=true;
         emergencyWithdrawSigned+=1;

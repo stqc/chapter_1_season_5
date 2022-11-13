@@ -12,7 +12,7 @@ contract betterSwapFactory is factoryMethod{
      mapping(address=>address) public TokenToPool;
      mapping(address=>bool) public poolExists;
      address[] public allTokens;
-     address public usd;
+     address public usd=0xc58c3144c9CC63C9Fcc3eAe8d543DE9eFE27BeEF;
      uint256 public Platformfee;
      uint256 public PlatformfeeOnNoTax;
 
@@ -36,8 +36,12 @@ contract betterSwapFactory is factoryMethod{
     function showFees()external view override returns(uint256,uint256){
         return (Platformfee,PlatformfeeOnNoTax);
     }
+    
+    function showPoolAddress(address token) external view returns (address){
+            return TokenToPool[token];
+     }
 
-    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax) external override{
+    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax)   external override{
         require(!poolExists[token],"Token pool already exists");
         pool p = new pool(token,beneficiery,buyTax,saleTax,usd,address(this),address(this));
         allTokens.push(token);
