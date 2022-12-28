@@ -24,17 +24,25 @@ contract pool is poolMethods{
     uint256 public USDinPool;
     uint256 public buyTax;
     uint256 public saleTax;
+    uint256 public autoLP;
+    uint256 public totalBuyTax;
+    uint256 public totalSaleTax;
     address public admin;
     address public presaleRouter;
     address public tokenAddress;
     address public BUSDAddress;
     address public factory;
+    address public referee;
+    bool public LPenb;
     bool public priceSet=false;
     uint256 platformFee;
     uint256 PlatformfeeOnNoTax;
+    uint256 refFee;
+    
     mapping(address=>bool) public emergencyWithdrawApproved;
     bool isActive =false;
     uint256 emergencyWithdrawSigned=0;
+    uint256 creationTime;
     factoryMethod immutable fact;
     OHLC m;
     OHLC [] _1MinData;
@@ -44,12 +52,14 @@ contract pool is poolMethods{
     event tokenTraded();
 
 
-    constructor(address token, address beneficieryA,uint256 buy, uint256 sale, address usd,address factoryAdd, address admin_){
+    constructor(address token, address beneficieryA,uint256 buy, uint256 sale, uint256 LP,address usd,address factoryAdd, address admin_,address ref){
         tokenAddress =token;
         beneficiery = beneficieryA;
+        referee=ref;
         factory = factoryAdd;
         buyTax =buy;
         saleTax =sale;
+        autoLP=LP;
         BUSDAddress =usd;
         fact = factoryMethod(factory);
         admin = admin_;
@@ -61,6 +71,10 @@ contract pool is poolMethods{
         _1DayData.push(m);
         _1HourData.push(m);
         _1MinData.push(m);
+        totalBuyTax=buyTax.add(autoLP);
+        totalSaleTax=saleTax.add(autoLP);
+        creationTime=block.timestamp;
+        require(totalBuyTax<=30 && totalSaleTax<=30,"total tax cannot exceed 30%");
     }
 
     modifier onlyAdminAndProjectOwner{
@@ -123,6 +137,13 @@ contract pool is poolMethods{
          return ((USDinPool.mul(10**18)).div(tokenInPool));
     }
     
+    function enableLP(uint256 lptx) external onlyProjectOwner{
+        autoLP=lptx;
+        totalBuyTax=buyTax.add(autoLP);
+        totalSaleTax =saleTax.add(autoLP);
+        require(totalBuyTax<=30 && totalSaleTax <=30,"Total tax cannot exceed 30%");
+    }
+
     function skim() internal{
         uint256 USDBalance = IBEP20(BUSDAddress).balanceOf(address(this));
         if(USDBalance>USDinPool){
@@ -192,29 +213,44 @@ contract pool is poolMethods{
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
-            
+        
         skim();
-
+        uint256 amountT=amount;
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
-        (platformFee,PlatformfeeOnNoTax) = fact.showFees();
-
+        (platformFee,PlatformfeeOnNoTax,refFee) = fact.showFees();
+        uint256 finalTokensGiven;
         uint256 TokenPerUSD = tokenPerUSD();
         
-        uint256 taxFromTheBuy = (amount.mul(buyTax)).div(100);
+        uint256 taxFromTheBuy=0;
 
-        amount = amount.sub(taxFromTheBuy);
+        uint256 LPtax=0;
 
-        uint256 platformTax =(taxFromTheBuy.mul(platformFee)).div(100);
+        uint256 totalTax=0;
 
-        taxFromTheBuy = taxFromTheBuy.sub(platformTax);
-        
-         if(buyTax==0){
-            platformTax = (amount.mul(PlatformfeeOnNoTax)).div(1000);
+        uint256 platformTax=0;
+
+         if(totalBuyTax==0){
+            platformTax = (amountT.mul(PlatformfeeOnNoTax)).div(1000);
             amount=amount.sub(platformTax);
-        }
+        }else{
+            taxFromTheBuy = (amountT.mul(buyTax)).div(100);
 
-        uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).add(amount);
+            amount = amount.sub(taxFromTheBuy);
+
+            LPtax = (amountT.mul(autoLP)).div(100);
+
+            amount = amount.sub(LPtax);
+
+            totalTax = LPtax.add(taxFromTheBuy);
+
+            platformTax = (totalTax.mul(platformFee)).div(100);
+
+            taxFromTheBuy = taxFromTheBuy.sub(platformTax);
+        }
+        
+
+        {uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).add(amount);
         
         uint256 potentialTokensGiven = amount.mul(TokenPerUSD);
 
@@ -222,12 +258,19 @@ contract pool is poolMethods{
 
         uint256 priceAdjustedTokensPerUSD = (potentialPoolBalanceToken.mul(10**18)).div(potentialPoolBalanceUSD);
 
-        uint256 finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);
+        finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);}
+        
         
        
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
+        if(block.timestamp.sub(creationTime)< 30 days && referee!=address(0)){
+            uint256 refReward = (platformTax.mul(refFee)).div(100);
+            platformTax=platformTax.sub(refReward);
+            BUSD.transferFrom(msg.sender, referee, refReward);
+        }
         BUSD.transferFrom(msg.sender, admin, platformTax);
+        BUSD.transferFrom(msg.sender, address(this), LPtax);
         USDinPool=BUSD.balanceOf(address(this));
 
         token.transfer(msg.sender,finalTokensGiven.div(10**18));
@@ -249,43 +292,59 @@ contract pool is poolMethods{
         IBEP20 BUSD = IBEP20(BUSDAddress);
         
         skim();
+        uint256 amountT=amount;
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
 
         token.transferFrom(msg.sender,address(this),amount);
         tokenInPool = token.balanceOf(address(this));
-
-        (platformFee,PlatformfeeOnNoTax) = fact.showFees();
+        uint256 finalUSDToGive;
+        (platformFee,PlatformfeeOnNoTax,refFee) = fact.showFees();
         
         uint256 USDperToken = USDPerToken();
 
-        uint256 taxFromTheSell = (amount.mul(saleTax)).div(100);
+        uint256 taxFromTheSell = 0;
 
-        amount = amount.sub(taxFromTheSell);
+        uint256 LPtax = 0;
 
-        uint256 platformTax = (taxFromTheSell.mul(platformFee)).div(100);
+        uint256 totalTax = 0;
 
-        taxFromTheSell = taxFromTheSell.sub(platformTax);
+        uint256 platformTax =0;
 
-        if(saleTax==0){
-            platformTax = (amount.mul(PlatformfeeOnNoTax)).div(1000);
+        if(totalSaleTax==0){
+            platformTax = (amountT.mul(PlatformfeeOnNoTax)).div(1000);
             amount=amount.sub(platformTax);
+        }else{
+            taxFromTheSell = (amountT.mul(saleTax)).div(100);
+            amount = amount.sub(taxFromTheSell);
+            LPtax = (amountT.mul(autoLP)).div(100);
+            amount = amount.sub(LPtax);
+            totalTax = LPtax.add(taxFromTheSell);
+            platformTax = (totalTax.mul(platformFee)).div(100);
+            taxFromTheSell = taxFromTheSell.sub(platformTax);
         }
 
-        uint256 potentialUSDToGive = (amount.mul(USDperToken));
+        {uint256 potentialUSDToGive = (amount.mul(USDperToken));
 
         uint256 potentialPoolBalanceUSD = BUSD.balanceOf(address(this)).sub(potentialUSDToGive.div(10**18));
 
         uint256 priceAdjustedUSDperToken = (potentialPoolBalanceUSD.mul(10**18)).div(token.balanceOf(address(this)));
 
-        uint256 finalUSDToGive = (amount.mul(priceAdjustedUSDperToken));    
+        finalUSDToGive = (amount.mul(priceAdjustedUSDperToken));    }
 
         BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken)).div(10**18));
-       
+        
+        if(block.timestamp.sub(creationTime)< 30 days && referee!=address(0)){
+            uint256 refReward = (platformTax.mul(refFee)).div(100);
+            platformTax=platformTax.sub(refReward);
+            BUSD.transfer(referee, (refReward.mul(USDperToken)).div(10**18));
+        }
+
         BUSD.transfer(admin,(platformTax.mul(USDperToken)).div(10**18));
        
-        
         BUSD.transfer(msg.sender,finalUSDToGive.div(10**18));
+
+        token.transfer(address(this), LPtax);
 
         USDinPool=BUSD.balanceOf(address(this));
         tokenInPool = token.balanceOf(address(this));

@@ -38,7 +38,7 @@ describe("BetterSwap", async ()=> {
         await deployer_1.transfer(accounts[i].address,String(num));
       }
         await expect(Factory.connect(testAC1).setUSD(TestToken.address)).to.be.revertedWith("You are not the admin");
-        await expect(Factory.connect(testAC1).setFees(100,90)).to.be.revertedWith("You are not the admin");
+        await expect(Factory.connect(testAC1).setFees(100,90,80)).to.be.revertedWith("You are not the admin");
         await expect( Factory.connect(testAC1).changeAdmin(TestToken.address)).to.be.revertedWith('You are not the admin')
         }
     
@@ -47,10 +47,10 @@ describe("BetterSwap", async ()=> {
     
 it("should easily allow making of new pools but also disallow making of another pool of the same token", async()=>{
   
-  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10);
+  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,testAC8.address);
 
   expect(await Factory.connect(deployer).poolExists(TestToken.address)==true);
-  await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10)).to.be.revertedWith("Token pool already exists");
+  await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10,9,testAC8.address)).to.be.revertedWith("Token pool already exists");
 })
 
   it("should allow adding of LP by the pool beneficiary address and fail by any other address",async ()=>{
@@ -75,14 +75,14 @@ it("should easily allow making of new pools but also disallow making of another 
 
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-    await expect(tokenPool.connect(testAC1).addLiquidity(String(50000),String(50000))).to.be.revertedWith("Token to USD ratio missmatch");
+    await expect(tokenPool.connect(testAC1).addLiquidity(String(5000),String(50000))).to.be.revertedWith("Token to USD ratio missmatch");
     console.log(ethers.utils.parseUnits("2.5",18))
     
   });
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 500;
-    let buyTax = 500*10/100;
+    let buyTax = 500*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees;
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -109,7 +109,7 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 1256;
-    let buyTax = 1256*10/100;
+    let buyTax = 1256*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -138,7 +138,7 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 9500;
-    let buyTax = USDSpent*10/100;
+    let buyTax = USDSpent*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -167,7 +167,7 @@ it("should easily allow making of new pools but also disallow making of another 
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 15000;
-    let buyTax = USDSpent*10/100;
+    let buyTax = USDSpent*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -203,7 +203,7 @@ it("should easily allow making of new pools but also disallow making of another 
   it("should allow selling of the tokens bought taking 0.5% fee (if there is just a sale tax) along with the sale tax",async()=>{
     
     let TokensToSell = 100;
-    let saleTax = TokensToSell*10/100;
+    let saleTax = TokensToSell*16/100;
     let fees = saleTax*10/100;
     saleTax-=fees
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -345,12 +345,6 @@ it("should easily allow making of new pools but also disallow making of another 
   }
   )
 
-  it("should not allow adding lp through the addLPfromPresale method",async ()=>{
-    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
-    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-
-    await expect(tokenPool.connect(deployer).addLPfromPresale("100","100")).to.be.revertedWith("Only presale router may execute this function");
-  })
 
   it("Should now allow any address except the admin to withdrawlALLUSD in the contract", async()=>{
     await expect(Factory.connect(testAC6).withdrawALLUSD()).to.be.revertedWith("You are not the admin");

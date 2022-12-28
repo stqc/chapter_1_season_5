@@ -15,11 +15,12 @@ contract betterSwapFactory is factoryMethod{
      address public usd=0xc58c3144c9CC63C9Fcc3eAe8d543DE9eFE27BeEF;
      uint256 public Platformfee;
      uint256 public PlatformfeeOnNoTax;
-
+     uint256 public referalFee;
     constructor(){
         admin = msg.sender;
         Platformfee = 10;
         PlatformfeeOnNoTax=5;
+        referalFee=10;
     }
 
  
@@ -33,27 +34,28 @@ contract betterSwapFactory is factoryMethod{
         usd = add;
     }
     
-    function showFees()external view override returns(uint256,uint256){
-        return (Platformfee,PlatformfeeOnNoTax);
+    function showFees()external view returns(uint256,uint256,uint256){
+        return (Platformfee,PlatformfeeOnNoTax,referalFee);
     }
     
     function showPoolAddress(address token) external view returns (address){
             return TokenToPool[token];
      }
 
-    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax)   external override{
+    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax,uint256 lp,address ref)   external {
         require(!poolExists[token],"Token pool already exists");
-        pool p = new pool(token,beneficiery,buyTax,saleTax,usd,address(this),address(this));
+        pool p = new pool(token,beneficiery,buyTax,saleTax,lp,usd,address(this),address(this),ref);
         allTokens.push(token);
         TokenToPool[token] = address(p);
         poolExists[token]=true;
 
     }
 
-    function setFees(uint256 Pfee, uint256 noTaxFee) external{
+    function setFees(uint256 Pfee, uint256 noTaxFee, uint256 rf) external{
         require(msg.sender==admin,"You are not the admin");
         Platformfee =Pfee;
         PlatformfeeOnNoTax=noTaxFee;
+        referalFee = rf;
     }
 
     function approveEmergencyWithdraw(address poolAdd) external{
