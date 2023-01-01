@@ -137,10 +137,10 @@ contract pool is poolMethods{
          return ((USDinPool.mul(10**18)).div(tokenInPool));
     }
     
-    function enableLP(uint256 lptx) external onlyProjectOwner{
+    function updatePoolTax(uint256 buytx,uint256 selltx,uint256 lptx) external onlyProjectOwner{
         autoLP=lptx;
-        totalBuyTax=buyTax.add(autoLP);
-        totalSaleTax =saleTax.add(autoLP);
+        totalBuyTax=buytx.add(autoLP);
+        totalSaleTax =selltx.add(autoLP);
         require(totalBuyTax<=30 && totalSaleTax <=30,"Total tax cannot exceed 30%");
     }
 
