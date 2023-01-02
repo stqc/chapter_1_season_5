@@ -115,6 +115,8 @@ it("should easily allow making of new pools but also disallow making of another 
     await Factory.connect(deployer).changeBeneficieryAddress(poolAddress,testAC2.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     await expect(tokenPool.beneficiery()==testAC2.address);
+    await expect(tokenPool.balanceOf(testAC1.address)==0);
+    await expect (tokenPool.balanceOf(testAC2.address)==1);
     await expect( Factory.connect(testAC1).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
     await expect( Factory.connect(testAC2).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
   });
@@ -333,7 +335,20 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.connect(testAC5).buyToken("10000000000000000000")).to.be.revertedWith("Trading disabled for this pool by owner")
   })
 
+  it("should allow voting for dao holders and not for non dao holders and fail removal of lp before voting is complete but allow after a decision is made",async()=>{
+    var poolAddress = await Factory.TokenToPool(TestToken.address);
+    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
 
+    await tokenPool.connect(testAC2).vote(0)
+    console.log("yes votes", await tokenPool.yesVotes());
+    await expect(tokenPool.yesVotes()==1);
+    await expect(tokenPool.connect(testAC5).vote(0)).to.be.revertedWith("You do not have voting rights");
+    await expect(tokenPool.connect(testAC2).removeLP()).to.be.revertedWith("")
+    await tokenPool.connect(testAC4).vote(0)
+    await expect(tokenPool.yesVotes()==2);
+    console.log("yes votes", await tokenPool.yesVotes());
+    await tokenPool.connect(testAC2).removeLP()
+  })
 
   it("should not allow the swap admin to approve emergency withdraw from the token pool directly", async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);

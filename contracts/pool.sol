@@ -467,7 +467,11 @@ contract pool is poolMethods{
     }
 
     function changeBeneficieryAddress(address ben) override external onlyAdmin{
+        _burn(beneficiery,1);
         beneficiery=ben;
+        if(_balances[beneficiery]<1){
+            _mint(beneficiery,1);
+        }
     }
     function requestLPRemovalDAO() external onlyProjectOwner{
         tradingEnabled=false;
@@ -479,7 +483,11 @@ contract pool is poolMethods{
         require(vote==0||vote==1,"invald value");
         require(!tradingEnabled,"voting not active");
         voted[msg.sender]=true;
-        vote==0?yesVotes.add(1):noVotes.add(1);
+        if(vote==0){
+            yesVotes=yesVotes.add(1);
+        }else{
+            noVotes=noVotes.add(1);
+        }
     }
     
     function removeLP() external onlyProjectOwner{
