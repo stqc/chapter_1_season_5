@@ -47,23 +47,24 @@ describe("BetterSwap", async ()=> {
     
 it("should easily allow making of new pools but also disallow making of another pool of the same token", async()=>{
   
-  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,testAC8.address);
+  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,ethers.utils.parseUnits("500000000000000000000",18),testAC8.address);
 
   expect(await Factory.connect(deployer).poolExists(TestToken.address)==true);
-  await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10,9,testAC8.address)).to.be.revertedWith("Token pool already exists");
+  await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10,9,ethers.utils.parseUnits("200000000000000000000",18),testAC8.address)).to.be.revertedWith("Token pool already exists");
 })
 
   it("should allow adding of LP by the pool beneficiary address and fail by any other address",async ()=>{
     
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
+    await(console.log(await tokenPool.symbol()))
     expect(tokenPool.address == poolAddress)
     await TestToken.connect(testAC1).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await expect(TestToken.connect(testAC1).allowance(testAC1.address,Factory.address)==ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await USD.connect(testAC1).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await expect(USD.connect(testAC1).allowance(testAC1.address,Factory.address)==ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
-    await tokenPool.connect(testAC1).addLiquidity(ethers.utils.parseUnits("50000",18),ethers.utils.parseUnits("25000",18));
-    expect(await tokenPool.showPoolBalance()==[ethers.utils.parseUnits("50000",18),ethers.utils.parseUnits("25000",18)]);
+    await tokenPool.connect(testAC1).addLiquidity(ethers.utils.parseUnits("25000",18),ethers.utils.parseUnits("25000",18));
+    expect(await tokenPool.showPoolBalance()==[ethers.utils.parseUnits("25000",18),ethers.utils.parseUnits("25000",18)]);
     await TestToken.connect(deployer).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await USD.connect(deployer).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await expect (tokenPool.connect(deployer).addLiquidity(String(10000),String(5000))).to.be.revertedWith("You are not the project owner");
@@ -81,8 +82,8 @@ it("should easily allow making of new pools but also disallow making of another 
   });
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
-    let USDSpent = 500;
-    let buyTax = 500*16/100;
+    let USDSpent = 100;
+    let buyTax = 100*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees;
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -105,8 +106,29 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("AD dao tokens: "+await tokenPool.balanceOf(testAC2.address));
+    console.log("AD1 dao tokens: "+await tokenPool.balanceOf(testAC1.address));
+  })
+  it("should burn the dao token when selling everything",async()=>{
+    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
+    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
+    var balanceof5 = await TestToken.balanceOf(testAC2.address);
+    console.log(String(balanceof5/1e18));
+    await tokenPool.connect(testAC2).sellToken(ethers.utils.parseUnits("80000000000000000000",18))
+    expect(await tokenPool.balanceOf(testAC2.address)==0);
+    console.log("total dao: ",await tokenPool.totalSupply())
+    console.log("5 dao:", await tokenPool.balanceOf(testAc2.address));
   })
 
+  it("should allow chainging beneficiery address of any pool by the admin and fail by any other address",async()=>{
+    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);  
+    await Factory.connect(deployer).changeBeneficieryAddress(poolAddress,testAC2.address);
+    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
+    await expect(tokenPool.beneficiery()==testAC2.address);
+    await expect( Factory.connect(testAC1).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
+    await expect( Factory.connect(testAC2).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
+  });
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
     let USDSpent = 1256;
     let buyTax = 1256*16/100;
@@ -134,6 +156,9 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC3.address));
+
   })
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
@@ -163,6 +188,8 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC4.address));
   })
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
@@ -192,6 +219,8 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC5.address));
   })
   
   it("should fail to buy more than 85% of the tokens in the pool",async()=>{
@@ -229,6 +258,8 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC5.address));
 
   })
 
@@ -260,17 +291,12 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
+    console.log("Total dao tokens: "+await tokenPool.totalSupply());
+    console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC3.address));
     
   })
 
-  it("should allow chainging beneficiery address of any pool by the admin and fail by any other address",async()=>{
-    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);  
-    await Factory.connect(deployer).changeBeneficieryAddress(poolAddress,testAC2.address);
-    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-    await expect(tokenPool.beneficiery()==testAC2.address);
-    await expect( Factory.connect(testAC1).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
-    await expect( Factory.connect(testAC2).changeBeneficieryAddress(poolAddress,testAC2.address)).to.be.revertedWith("You are not the admin");
-  });
+  
 
   it("should allow new beneficiery to add liquidity and fail when any other address tries to", async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -298,19 +324,15 @@ it("should easily allow making of new pools but also disallow making of another 
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
 
-    await expect(tokenPool.connect(deployer).changeBeneficieryAddress(testAC1.address)).to.be.revertedWith("You are not the project owner or admin");
-    await expect(tokenPool.connect(testAC2).changeBeneficieryAddress(testAC1.address)).to.be.revertedWith("You are not the project owner or admin");
+    await expect(tokenPool.connect(deployer).changeBeneficieryAddress(testAC1.address)).to.be.revertedWith("You are not the admin");
+    await expect(tokenPool.connect(testAC2).changeBeneficieryAddress(testAC1.address)).to.be.revertedWith("You are not the admin");
     
   })
 
-  it("should allow project owner to apply for emergency withdral of tokens but fail when they try to do it twice to bypass admin approval",async()=>{
+  it("should not allow emergency withdrawl by non admin",async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-
-    await tokenPool.connect(testAC2).approveEmergencyWithdraw();
-    await expect(tokenPool.emergencyWithdrawApproved(testAC2)==true)
-
-    await expect(tokenPool.connect(testAC2).approveEmergencyWithdraw()).to.be.revertedWith("You have already voted");
+    await expect(tokenPool.connect(testAC2).approveEmergencyWithdraw()).to.be.revertedWith("You are not the admin");
     
   })
 
@@ -318,7 +340,7 @@ it("should easily allow making of new pools but also disallow making of another 
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
 
-    await expect(tokenPool.connect(deployer).approveEmergencyWithdraw()).to.be.revertedWith("You are not the project owner or admin");
+    await expect(tokenPool.connect(deployer).approveEmergencyWithdraw()).to.be.revertedWith("You are not the admin");
  
   })
 
@@ -352,7 +374,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await Factory.connect(deployer).withdrawALLUSD();
     await expect(USD.balanceOf(deployer.address)>usdBal);
   })
-
+  
   it("should not allow any address to approve emergency approval expect the admin",async ()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     await expect(Factory.connect(testAC1).approveEmergencyWithdraw(poolAddress)).to.be.revertedWith("You are not the admin");
@@ -371,12 +393,16 @@ it("should easily allow making of new pools but also disallow making of another 
   it("should fail swapping when the LP is removed", async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-
+    console.log("DAO"+await tokenPool.totalSupply())
     await expect(tokenPool.connect(testAC3).sellToken("1000")).to.be.revertedWith("The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
     console.log(await USD.balanceOf(poolAddress));
     console.log(await TestToken.balanceOf(poolAddress));
   })
+  
+  
+
   }
 
+  
   
 );

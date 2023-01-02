@@ -27,6 +27,7 @@ contract pool is poolMethods{
     uint256 public autoLP;
     uint256 public totalBuyTax;
     uint256 public totalSaleTax;
+    uint256 public DAOThreshold;
     address public admin;
     address public presaleRouter;
     address public tokenAddress;
@@ -35,13 +36,13 @@ contract pool is poolMethods{
     address public referee;
     bool public LPenb;
     bool public priceSet=false;
+    bool public tradingEnabled=true;
     uint256 platformFee;
     uint256 PlatformfeeOnNoTax;
     uint256 refFee;
+    bool lock;
     
-    mapping(address=>bool) public emergencyWithdrawApproved;
     bool isActive =false;
-    uint256 emergencyWithdrawSigned=0;
     uint256 creationTime;
     factoryMethod immutable fact;
     OHLC m;
@@ -49,10 +50,29 @@ contract pool is poolMethods{
     OHLC [] _1HourData;
     OHLC [] _1DayData;
 
+    //DAO variables
+    uint256 public yesVotes=0;
+    uint256 public noVotes=0;
+    mapping (address => uint256) private _balances;
+    mapping (address=>uint256) public invested;
+    mapping (address=>bool) public voted;
+    uint256 private _totalSupply;
+    uint8 public _decimals=0;
+    string public _symbol ;
+    string public _name;
+
     event tokenTraded();
 
+    modifier protecc{
+        require(!lock,"Transaction in progress:Reentrant call");
+        lock = true;
+        _;
+        lock =false;
+    
+  }
 
-    constructor(address token, address beneficieryA,uint256 buy, uint256 sale, uint256 LP,address usd,address factoryAdd, address admin_,address ref){
+    constructor(address token, address beneficieryA,uint256 buy, uint256 sale, uint256 LP,uint256 DAOthresh,address usd,address factoryAdd, address admin_,address ref){
+        setName(IBEP20(token).symbol());
         tokenAddress =token;
         beneficiery = beneficieryA;
         referee=ref;
@@ -60,6 +80,7 @@ contract pool is poolMethods{
         buyTax =buy;
         saleTax =sale;
         autoLP=LP;
+        DAOThreshold=DAOthresh;
         BUSDAddress =usd;
         fact = factoryMethod(factory);
         admin = admin_;
@@ -74,6 +95,7 @@ contract pool is poolMethods{
         totalBuyTax=buyTax.add(autoLP);
         totalSaleTax=saleTax.add(autoLP);
         creationTime=block.timestamp;
+        _mint(beneficiery,1);
         require(totalBuyTax<=30 && totalSaleTax<=30,"total tax cannot exceed 30%");
     }
 
@@ -88,14 +110,50 @@ contract pool is poolMethods{
     }
 
     modifier onlyAdmin{
-        require(msg.sender==admin ,"You are not the project owner or admin");
+        require(msg.sender==admin ,"You are not the admin");
         _;
     }
 
-    modifier onlyPresale{
-        require(msg.sender==presaleRouter,"Only presale router may execute this function");
-        _;
+   //DAO Methods
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    
+    function setName(string memory sym) internal{
+        bytes memory name__=abi.encodePacked(sym,"-BetterSwapDAO");
+        bytes memory sym__ = abi.encodePacked(sym,"-BSwapDAO");
+        _name=string(name__);
+        _symbol=string(sym__);
     }
+
+    function decimals() external view returns (uint8) {
+        return _decimals;
+    }
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+    function name() external view returns (string memory) {
+    return _name;
+    }
+    function totalSupply() external view returns (uint256) {
+    return _totalSupply;
+    }
+    function balanceOf(address account) external view returns (uint256) {
+    return _balances[account];
+    }
+    function _mint(address account, uint256 amount) internal {
+    require(account != address(0), "BEP20: mint to the zero address");
+
+    _totalSupply = _totalSupply.add(amount);
+    _balances[account] = _balances[account].add(amount);
+    emit Transfer(address(0), account, amount);
+    }
+    function _burn(address account, uint256 amount) internal {
+    require(account != address(0), "BEP20: burn from the zero address");
+
+    _balances[account] = _balances[account].sub(amount, "BEP20: burn amount exceeds balance");
+    _totalSupply = _totalSupply.sub(amount);
+    emit Transfer(account, address(0), amount);
+    }
+    //DAO methods end
 
     function showTradeData(uint256 time) external view returns( OHLC [] memory){
         if(time==1){
@@ -209,8 +267,9 @@ contract pool is poolMethods{
         }
     }
     
-    function buyToken(uint256 amount) external override {
+    function buyToken(uint256 amount) external override protecc{
         require(amount.mul(tokenPerUSD()).div(10**18)<(tokenInPool.mul(85)).div(100),"It seems there is insufficient liquidity");
+        require(tradingEnabled,"Trading disabled for this pool by owner");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
         
@@ -282,12 +341,18 @@ contract pool is poolMethods{
         update1dChart(block.timestamp,USDPerToken());
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
+        
+        invested[msg.sender]=invested[msg.sender].add(finalTokensGiven);
 
+        if(finalTokensGiven>=DAOThreshold && _balances[msg.sender]<1){
+            _mint(msg.sender, 1);
+        }
         emit tokenTraded();
     } //buy the token from the said pool
 
-    function sellToken(uint256 amount) override external  {
+    function sellToken(uint256 amount) override external protecc {
         require(amount.mul(USDPerToken()).div(10**18)<(USDinPool.mul(85)).div(100),"It seems there is insufficient liquidity");
+        require(tradingEnabled,"Trading disabled for this pool by owner");
         IBEP20 token = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
         
@@ -295,9 +360,11 @@ contract pool is poolMethods{
         uint256 amountT=amount;
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
-
+        
+        invested[msg.sender]=invested[msg.sender].sub(amount);
         token.transferFrom(msg.sender,address(this),amount);
         tokenInPool = token.balanceOf(address(this));
+
         uint256 finalUSDToGive;
         (platformFee,PlatformfeeOnNoTax,refFee) = fact.showFees();
         
@@ -352,6 +419,10 @@ contract pool is poolMethods{
         update1dChart(block.timestamp,USDPerToken());
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
+        
+        if(invested[msg.sender]<DAOThreshold){
+            _burn(msg.sender,1);
+        }
 
         emit tokenTraded();
     } //sell the token back to said pool
@@ -398,13 +469,30 @@ contract pool is poolMethods{
     function changeBeneficieryAddress(address ben) override external onlyAdmin{
         beneficiery=ben;
     }
+    function requestLPRemovalDAO() external onlyProjectOwner{
+        tradingEnabled=false;
+    }
+    
+    function vote(uint256 vote) external{
+        require(_balances[msg.sender]==1,"You do not have voting rights");
+        require(!voted[msg.sender],"You have already voted");
+        require(vote==0||vote==1,"invald value");
+        require(!tradingEnabled,"voting not active");
+        voted[msg.sender]=true;
+        vote==0?yesVotes.add(1):noVotes.add(1);
+    }
+    
+    function removeLP() external onlyProjectOwner{
+        require(yesVotes>=(_totalSupply.div(2)).add(1));
+        IBEP20 tokenA = IBEP20(tokenAddress);
+        IBEP20 BUSD = IBEP20(BUSDAddress);
+        uint256 tokenABalance = tokenA.balanceOf(address(this));
+        uint256 usdBalance = BUSD.balanceOf(address(this));
+        tokenA.transfer(beneficiery,tokenABalance);
+        BUSD.transfer(beneficiery,usdBalance);
+    }
 
-    function approveEmergencyWithdraw() external override onlyAdminAndProjectOwner  {
-        require(!emergencyWithdrawApproved[msg.sender],"You have already voted");
-        emergencyWithdrawApproved[msg.sender]=true;
-        emergencyWithdrawSigned+=1;
-
-        if(emergencyWithdrawSigned==2){
+    function approveEmergencyWithdraw() external override onlyAdmin  {
            
             IBEP20 tokenA = IBEP20(tokenAddress);
             IBEP20 BUSD = IBEP20(BUSDAddress);
@@ -412,7 +500,7 @@ contract pool is poolMethods{
             uint256 usdBalance = BUSD.balanceOf(address(this));
             tokenA.transfer(beneficiery,tokenABalance);
             BUSD.transfer(beneficiery,usdBalance);
-        }
+        
 
     }// allow emergency withdrawl of Liquidity
 

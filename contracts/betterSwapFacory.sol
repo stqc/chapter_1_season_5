@@ -42,9 +42,9 @@ contract betterSwapFactory is factoryMethod{
             return TokenToPool[token];
      }
 
-    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax,uint256 lp,address ref)   external {
+    function createNewPool(address token, address beneficiery, uint256 buyTax, uint256 saleTax,uint256 lp,uint256 thresh,address ref)   external {
         require(!poolExists[token],"Token pool already exists");
-        pool p = new pool(token,beneficiery,buyTax,saleTax,lp,usd,address(this),address(this),ref);
+        pool p = new pool(token,beneficiery,buyTax,saleTax,lp,thresh,usd,address(this),address(this),ref);
         allTokens.push(token);
         TokenToPool[token] = address(p);
         poolExists[token]=true;
