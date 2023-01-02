@@ -119,7 +119,7 @@ contract pool is poolMethods{
     
     function setName(string memory sym) internal{
         bytes memory name__=abi.encodePacked(sym,"-BetterSwapDAO");
-        bytes memory sym__ = abi.encodePacked(sym,"-BSwapDAO");
+        bytes memory sym__ = abi.encodePacked(sym,"-BSLPDAO");
         _name=string(name__);
         _symbol=string(sym__);
     }
@@ -483,7 +483,7 @@ contract pool is poolMethods{
     }
     
     function removeLP() external onlyProjectOwner{
-        require(yesVotes>=(_totalSupply.div(2)).add(1));
+        require(yesVotes>=(uint256(_totalSupply).div(2)).add(1));
         IBEP20 tokenA = IBEP20(tokenAddress);
         IBEP20 BUSD = IBEP20(BUSDAddress);
         uint256 tokenABalance = tokenA.balanceOf(address(this));

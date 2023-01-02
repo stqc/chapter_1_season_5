@@ -110,17 +110,6 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log("AD dao tokens: "+await tokenPool.balanceOf(testAC2.address));
     console.log("AD1 dao tokens: "+await tokenPool.balanceOf(testAC1.address));
   })
-  it("should burn the dao token when selling everything",async()=>{
-    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
-    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-    var balanceof5 = await TestToken.balanceOf(testAC2.address);
-    console.log(String(balanceof5/1e18));
-    await tokenPool.connect(testAC2).sellToken("48400000000000000000")
-    expect(await tokenPool.balanceOf(testAC2.address)==0);
-    console.log("total dao: ",await tokenPool.totalSupply())
-    console.log("5 dao:", await tokenPool.balanceOf(testAC2.address));
-  })
-
   it("should allow chainging beneficiery address of any pool by the admin and fail by any other address",async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);  
     await Factory.connect(deployer).changeBeneficieryAddress(poolAddress,testAC2.address);
@@ -229,7 +218,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.connect(testAC2).buyToken(ethers.utils.parseUnits(String(45000),18))).to.be.revertedWith("It seems there is insufficient liquidity");
   })
   
-  it("should allow selling of the tokens bought taking 0.5% fee (if there is just a sale tax) along with the sale tax",async()=>{
+  it("should allow selling of the tokens bought taking 0.5% fee (if there is just a sale tax) along with the sale tax and also burn dao token",async()=>{
     
     let TokensToSell = 100;
     let saleTax = TokensToSell*16/100;
@@ -260,7 +249,7 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
     console.log("Total dao tokens: "+await tokenPool.totalSupply());
     console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC5.address));
-
+    await expect(tokenPool.balanceOf(testAC5.address)==0);
   })
 
   it("should allow selling of the tokens bought taking 0.25% fee (if there is just a sale tax) along with the sale tax",async()=>{
@@ -336,6 +325,16 @@ it("should easily allow making of new pools but also disallow making of another 
     
   })
 
+  it("should pause trading when voting is enabled",async()=>{
+    var poolAddress = await Factory.connect(testAC2).TokenToPool(TestToken.address);
+    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
+    
+    await tokenPool.connect(testAC2).requestLPRemovalDAO();
+    await expect(tokenPool.connect(testAC5).buyToken("10000000000000000000")).to.be.revertedWith("Trading disabled for this pool by owner")
+  })
+
+
+
   it("should not allow the swap admin to approve emergency withdraw from the token pool directly", async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
@@ -394,7 +393,7 @@ it("should easily allow making of new pools but also disallow making of another 
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     console.log("DAO"+await tokenPool.totalSupply())
-    await expect(tokenPool.connect(testAC3).sellToken("1000")).to.be.revertedWith("The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
+    await expect(tokenPool.connect(testAC3).sellToken("1000")).to.be.revertedWith("Trading disabled for this pool by owner");
     console.log(await USD.balanceOf(poolAddress));
     console.log(await TestToken.balanceOf(poolAddress));
   })
