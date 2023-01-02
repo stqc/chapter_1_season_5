@@ -342,7 +342,7 @@ contract pool is poolMethods{
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
         
-        invested[msg.sender]=invested[msg.sender].add(finalTokensGiven);
+        invested[msg.sender]=(invested[msg.sender].add(finalTokensGiven)).div(10**18);
 
         if(finalTokensGiven>=DAOThreshold && _balances[msg.sender]<1){
             _mint(msg.sender, 1);

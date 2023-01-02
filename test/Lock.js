@@ -47,7 +47,7 @@ describe("BetterSwap", async ()=> {
     
 it("should easily allow making of new pools but also disallow making of another pool of the same token", async()=>{
   
-  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,ethers.utils.parseUnits("500000000000000000000",18),testAC8.address);
+  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,ethers.utils.parseUnits("100000000000000000000",18),testAC8.address);
 
   expect(await Factory.connect(deployer).poolExists(TestToken.address)==true);
   await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10,9,ethers.utils.parseUnits("200000000000000000000",18),testAC8.address)).to.be.revertedWith("Token pool already exists");
@@ -82,8 +82,8 @@ it("should easily allow making of new pools but also disallow making of another 
   });
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
-    let USDSpent = 100;
-    let buyTax = 100*16/100;
+    let USDSpent = 600;
+    let buyTax = 600*16/100;
     let fees = buyTax*10/100;
     buyTax-=fees;
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
@@ -101,7 +101,7 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(USD.balanceOf(testAC1.address)==ethers.utils.parseUnits(String(balanceOFOwner+buyTax),18));
     let sbum = USDBalanceOfPool+USDSpent-buyTax-fees;
     await expect(tokenPool.showPoolBalance()==[ethers.utils.parseUnits(String(sbum),18),ethers.utils.parseUnits(String(tokenBalanceOfPool-amountOfTokensBought),18)]);
-
+    console.log(await TestToken.balanceOf(testAC2.address));
     console.log(await tokenPool.showPoolBalance())
     console.log("$"+await USD.balanceOf(Factory.address)/1e18);
     console.log(await tokenPool.tokenPerUSD()/1e18+" tokens per USD");
@@ -115,10 +115,10 @@ it("should easily allow making of new pools but also disallow making of another 
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
     var balanceof5 = await TestToken.balanceOf(testAC2.address);
     console.log(String(balanceof5/1e18));
-    await tokenPool.connect(testAC2).sellToken(ethers.utils.parseUnits("80000000000000000000",18))
+    await tokenPool.connect(testAC2).sellToken("48400000000000000000")
     expect(await tokenPool.balanceOf(testAC2.address)==0);
     console.log("total dao: ",await tokenPool.totalSupply())
-    console.log("5 dao:", await tokenPool.balanceOf(testAc2.address));
+    console.log("5 dao:", await tokenPool.balanceOf(testAC2.address));
   })
 
   it("should allow chainging beneficiery address of any pool by the admin and fail by any other address",async()=>{
