@@ -7,6 +7,26 @@ import "./safemath.sol";
 import "./bep20.sol";
 import "./betterFactoryInterface.sol";
 
+contract voteHelper{
+
+    uint256 public creationDate;
+    mapping(address=>bool) private voted;
+
+    address parentContract;
+
+    constructor(){
+        creationDate=block.timestamp;
+        parentContract=msg.sender;
+    }
+
+    function updateVoteStatus(address voter) public {
+        voted[voter]=true;
+    }
+    function showVoteStatus(address voter) public view returns(bool){
+        return voted[voter];
+    }
+}
+
 
 contract pool is poolMethods{
     using SafeMath for uint256;
@@ -55,11 +75,11 @@ contract pool is poolMethods{
     uint256 public noVotes=0;
     mapping (address => uint256) private _balances;
     mapping (address=>uint256) public invested;
-    mapping (address=>bool) public voted;
     uint256 private _totalSupply;
     uint8 public _decimals=0;
     string public _symbol ;
     string public _name;
+    voteHelper helper;
 
     event tokenTraded();
 
@@ -475,18 +495,24 @@ contract pool is poolMethods{
     }
     function requestLPRemovalDAO() external onlyProjectOwner{
         tradingEnabled=false;
+        helper = new voteHelper();
     }
     
     function vote(uint256 vote) external{
         require(_balances[msg.sender]==1,"You do not have voting rights");
-        require(!voted[msg.sender],"You have already voted");
+        require(!helper.showVoteStatus(msg.sender),"You have already voted");
         require(vote==0||vote==1,"invald value");
         require(!tradingEnabled,"voting not active");
-        voted[msg.sender]=true;
+        helper.updateVoteStatus(msg.sender);
         if(vote==0){
             yesVotes=yesVotes.add(1);
         }else{
             noVotes=noVotes.add(1);
+        }
+        if(noVotes>=(uint256(_totalSupply).div(2)).add(1)){
+            tradingEnabled=true;
+            yesVotes=0;
+            noVotes=0;
         }
     }
     
@@ -501,7 +527,7 @@ contract pool is poolMethods{
     }
 
     function approveEmergencyWithdraw() external override onlyAdmin  {
-           
+            require(block.timestamp.sub(helper.creationDate())>3 days && !tradingEnabled);
             IBEP20 tokenA = IBEP20(tokenAddress);
             IBEP20 BUSD = IBEP20(BUSDAddress);
             uint256 tokenABalance = tokenA.balanceOf(address(this));

@@ -348,6 +348,9 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect(tokenPool.yesVotes()==2);
     console.log("yes votes", await tokenPool.yesVotes());
     await tokenPool.connect(testAC2).removeLP()
+
+    console.log(await USD.balanceOf(poolAddress));
+    console.log(await TestToken.balanceOf(poolAddress));
   })
 
   it("should not allow the swap admin to approve emergency withdraw from the token pool directly", async()=>{
