@@ -20,6 +20,7 @@ contract voteHelper{
     }
 
     function updateVoteStatus(address voter) public {
+        require(msg.sender==parentContract);
         voted[voter]=true;
     }
     function showVoteStatus(address voter) public view returns(bool){
