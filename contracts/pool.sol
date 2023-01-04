@@ -340,7 +340,7 @@ contract pool is poolMethods{
 
         finalTokensGiven=amount.mul(priceAdjustedTokensPerUSD);}
         
-        
+        invested[msg.sender]=invested[msg.sender].add(finalTokensGiven.div(10**18));
        
         BUSD.transferFrom(msg.sender,address(this),amount);
         BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
@@ -363,7 +363,7 @@ contract pool is poolMethods{
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
         
-        invested[msg.sender]=(invested[msg.sender].add(finalTokensGiven)).div(10**18);
+        
 
         if(finalTokensGiven>=DAOThreshold && _balances[msg.sender]<1){
             _mint(msg.sender, 1);
@@ -382,9 +382,14 @@ contract pool is poolMethods{
 
         require(tokenInPool==token.balanceOf(address(this)) && USDinPool==BUSD.balanceOf(address(this)),"The pool has been tampered with and needs to be fixed inorder to be usable again please ask the project owner to add the exact amount of tokens back");
         
-        invested[msg.sender]=invested[msg.sender].sub(amount);
         token.transferFrom(msg.sender,address(this),amount);
         tokenInPool = token.balanceOf(address(this));
+        
+        if(amountT<=invested[msg.sender]){
+            invested[msg.sender]=invested[msg.sender].sub(amountT);
+        }else if(amountT>invested[msg.sender]){ 
+            invested[msg.sender]=0;
+        }
 
         uint256 finalUSDToGive;
         (platformFee,PlatformfeeOnNoTax,refFee) = fact.showFees();
@@ -420,6 +425,8 @@ contract pool is poolMethods{
 
         finalUSDToGive = (amount.mul(priceAdjustedUSDperToken));    }
 
+        
+        
         BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken)).div(10**18));
         
         if(block.timestamp.sub(creationTime)< 30 days && referee!=address(0)){
@@ -441,7 +448,8 @@ contract pool is poolMethods{
         update1hChart(block.timestamp, USDPerToken());
         update1mChart(block.timestamp, USDPerToken());
         
-        if(invested[msg.sender]<DAOThreshold){
+        
+        if(invested[msg.sender]<DAOThreshold && _balances[msg.sender]>0){
             _burn(msg.sender,1);
         }
 

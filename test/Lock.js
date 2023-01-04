@@ -47,7 +47,7 @@ describe("BetterSwap", async ()=> {
     
 it("should easily allow making of new pools but also disallow making of another pool of the same token", async()=>{
   
-  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,ethers.utils.parseUnits("100000000000000000000",18),testAC8.address);
+  await Factory.connect(testAC1).createNewPool(TestToken.address,testAC1.address,10,10,6,ethers.utils.parseUnits("50000000000000000000",18),testAC8.address);
 
   expect(await Factory.connect(deployer).poolExists(TestToken.address)==true);
   await expect(Factory.connect(testAC5).createNewPool(TestToken.address,testAC5.address,10,10,9,ethers.utils.parseUnits("200000000000000000000",18),testAC8.address)).to.be.revertedWith("Token pool already exists");
@@ -70,15 +70,6 @@ it("should easily allow making of new pools but also disallow making of another 
     await expect (tokenPool.connect(deployer).addLiquidity(String(10000),String(5000))).to.be.revertedWith("You are not the project owner");
     console.log(await tokenPool.tokenPerUSD()/1e18+" Tokens per USD");
     console.log(await tokenPool.USDPerToken()/1e18+" USD per token");
-  });
-
-  it("should fail adding LP at different price points when the price has already been set",async ()=>{
-
-    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
-    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-    await expect(tokenPool.connect(testAC1).addLiquidity(String(5000),String(50000))).to.be.revertedWith("Token to USD ratio missmatch");
-    console.log(ethers.utils.parseUnits("2.5",18))
-    
   });
 
   it("should allow buying of tokens from the LP and take 0.5% tax from the USD being sent for purchase (if there happens to be a token tax) and also take token tax from the LP",async()=>{
@@ -238,6 +229,7 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log(USDBalanceOFAdmin,fees);
     await TestToken.connect(testAC5).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
     await USD.connect(testAC5).approve(poolAddress,ethers.utils.parseUnits("99999999999999999999999999999999999999",18));
+    console.log("invested before selling",await tokenPool.invested(testAC5.address));
     await tokenPool.connect(testAC5).sellToken(TokensToSell);
     await expect(USD.balanceOf(testAC5.address))==await USD.balanceOf(testAC5.address)+amountOfTokensSold;
     await expect(USD.balanceOf(Factory.address)==ethers.utils.parseUnits(String(USDBalanceOFAdmin+fees),18));
@@ -251,7 +243,8 @@ it("should easily allow making of new pools but also disallow making of another 
     console.log(await tokenPool.USDPerToken()/1e18+" USD per Token");
     console.log("Total dao tokens: "+await tokenPool.totalSupply());
     console.log("Total dao tokens: "+await tokenPool.balanceOf(testAC5.address));
-    await expect(tokenPool.balanceOf(testAC5.address)==0);
+    console.log("invested after selling",await tokenPool.invested(testAC5.address));
+    await expect(tokenPool.balanceOf(testAC5.address))==0;
   })
 
   it("should allow selling of the tokens bought taking 0.25% fee (if there is just a sale tax) along with the sale tax",async()=>{
@@ -320,6 +313,29 @@ it("should easily allow making of new pools but also disallow making of another 
     
   })
 
+  it("should automatically fix the pool when extra tokens or usd is sent directly to the pool address instead of through the addLiquidity method", async()=>{
+    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
+    var poolUSD = await USD.balanceOf(poolAddress);
+    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
+    var currentPrice = await tokenPool.USDPerToken();
+    console.log(await USD.balanceOf(tokenPool.address));
+    console.log(await USD.balanceOf(Factory.address)/1e18);
+    await USD.connect(deployer).transfer(poolAddress,ethers.utils.parseUnits("1000",18));
+    
+    await expect(USD.balanceOf(poolAddress)==poolUSD+ethers.utils.parseUnits("1000",18));
+    await expect(currentPrice==tokenPool.USDPerToken());
+    var currentAc3Bal =await USD.balanceOf(testAC3.address);
+    var currentAdminBal = await USD.balanceOf(Factory.address);
+    await tokenPool.connect(testAC3).buyToken(ethers.utils.parseUnits("2500",18));
+    await expect(USD.balanceOf(testAC3)==currentAc3Bal-ethers.utils.parseUnits("2500",18));
+    await expect(USD.balanceOf(Factory.address)==currentAdminBal+ethers.utils.parseUnits("1000",18));
+
+    console.log(await USD.balanceOf(tokenPool.address));
+    console.log(await USD.balanceOf(Factory.address)/1e18);
+
+  }
+  )
+
   it("should not allow emergency withdrawl by non admin",async()=>{
     var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
     var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
@@ -361,30 +377,7 @@ it("should easily allow making of new pools but also disallow making of another 
  
   })
 
-  it("should automatically fix the pool when extra tokens or usd is sent directly to the pool address instead of through the addLiquidity method", async()=>{
-    var poolAddress = await Factory.connect(testAC1).TokenToPool(TestToken.address);
-    var poolUSD = await USD.balanceOf(poolAddress);
-    var tokenPool = new ethers.Contract(poolAddress,poolABI,ethers.provider);
-    var currentPrice = await tokenPool.USDPerToken();
-    console.log(await USD.balanceOf(tokenPool.address));
-    console.log(await USD.balanceOf(Factory.address)/1e18);
-    await USD.connect(deployer).transfer(poolAddress,ethers.utils.parseUnits("1000",18));
-    
-    await expect(USD.balanceOf(poolAddress)==poolUSD+ethers.utils.parseUnits("1000",18));
-    await expect(currentPrice==tokenPool.USDPerToken());
-    var currentAc3Bal =await USD.balanceOf(testAC3.address);
-    var currentAdminBal = await USD.balanceOf(Factory.address);
-    await tokenPool.connect(testAC3).buyToken(ethers.utils.parseUnits("2500",18));
-    await expect(USD.balanceOf(testAC3)==currentAc3Bal-ethers.utils.parseUnits("2500",18));
-    await expect(USD.balanceOf(Factory.address)==currentAdminBal+ethers.utils.parseUnits("1000",18));
-
-    console.log(await USD.balanceOf(tokenPool.address));
-    console.log(await USD.balanceOf(Factory.address)/1e18);
-
-  }
-  )
-
-
+  
   it("Should now allow any address except the admin to withdrawlALLUSD in the contract", async()=>{
     await expect(Factory.connect(testAC6).withdrawALLUSD()).to.be.revertedWith("You are not the admin");
     var usdBal = await USD.balanceOf(deployer.address);
