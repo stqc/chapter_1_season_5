@@ -28,6 +28,11 @@ contract voteHelper{
     }
 }
 
+interface tokenNotification{
+    function onTradeCompletion(uint256) external;
+    function showtotalBuyTax() external view returns(uint256);
+    function showtotalSaleTax() external view returns(uint256);
+}
 
 contract pool is poolMethods{
     using SafeMath for uint256;
@@ -43,27 +48,21 @@ contract pool is poolMethods{
     address public beneficiery;
     uint256 public tokenInPool;
     uint256 public USDinPool;
-    uint256 public buyTax;
-    uint256 public saleTax;
-    uint256 public autoLP;
     uint256 public totalBuyTax;
     uint256 public totalSaleTax;
     uint256 public DAOThreshold;
     address public admin;
-    address public presaleRouter;
     address public tokenAddress;
     address public BUSDAddress;
     address public factory;
     address public referee;
-    bool public LPenb;
     bool public priceSet=false;
     bool public tradingEnabled=true;
     uint256 platformFee;
     uint256 PlatformfeeOnNoTax;
     uint256 refFee;
     bool lock;
-    
-    bool isActive =false;
+    tokenNotification Notify;
     uint256 creationTime;
     factoryMethod immutable fact;
     OHLC m;
@@ -80,6 +79,7 @@ contract pool is poolMethods{
     uint8 public _decimals=0;
     string public _symbol ;
     string public _name;
+    uint256 currentTradeTax;
     voteHelper helper;
 
     event tokenTraded();
@@ -89,21 +89,19 @@ contract pool is poolMethods{
         lock = true;
         _;
         lock =false;
-    
+        Notify.onTradeCompletion(currentTradeTax);
   }
 
-    constructor(address token, address beneficieryA,uint256 buy, uint256 sale, uint256 LP,uint256 DAOthresh,address usd,address factoryAdd, address admin_,address ref){
+    constructor(address token, address beneficieryA,uint256 DAOthresh,address factoryAdd, address admin_,address ref){
         setName(IBEP20(token).symbol());
         tokenAddress =token;
+        Notify=tokenNotification(token);
         beneficiery = beneficieryA;
         referee=ref;
         factory = factoryAdd;
-        buyTax =buy;
-        saleTax =sale;
-        autoLP=LP;
         DAOThreshold=DAOthresh;
-        BUSDAddress =usd;
         fact = factoryMethod(factory);
+        BUSDAddress =fact.showUSD();
         admin = admin_;
         m.Close=0;
         m.High=0;
@@ -113,11 +111,12 @@ contract pool is poolMethods{
         _1DayData.push(m);
         _1HourData.push(m);
         _1MinData.push(m);
-        totalBuyTax=buyTax.add(autoLP);
-        totalSaleTax=saleTax.add(autoLP);
+        totalBuyTax=Notify.showtotalBuyTax();
+        totalSaleTax=Notify.showtotalSaleTax();
         creationTime=block.timestamp;
         _mint(beneficiery,1);
         require(totalBuyTax<=30 && totalSaleTax<=30,"total tax cannot exceed 30%");
+        require(DAOThreshold<=(IBEP20(token).totalSupply().mul(10)).div(100),"DAO Threshold cannot be more than 10% of the total supply");
     }
 
     modifier onlyAdminAndProjectOwner{
@@ -127,6 +126,11 @@ contract pool is poolMethods{
 
      modifier onlyProjectOwner{
         require(msg.sender==beneficiery ,"You are not the project owner");
+        _;
+    }
+
+    modifier onlyProjectOwnerOrContract{
+        require(msg.sender==beneficiery || msg.sender==tokenAddress,"You are not project owner or token");
         _;
     }
 
@@ -215,13 +219,6 @@ contract pool is poolMethods{
     function USDPerToken() public view override returns(uint256){
          return ((USDinPool.mul(10**18)).div(tokenInPool));
     }
-    
-    function updatePoolTax(uint256 buytx,uint256 selltx,uint256 lptx) external onlyProjectOwner{
-        autoLP=lptx;
-        totalBuyTax=buytx.add(autoLP);
-        totalSaleTax =selltx.add(autoLP);
-        require(totalBuyTax<=30 && totalSaleTax <=30,"Total tax cannot exceed 30%");
-    }
 
     function skim() internal{
         uint256 USDBalance = IBEP20(BUSDAddress).balanceOf(address(this));
@@ -304,27 +301,17 @@ contract pool is poolMethods{
         
         uint256 taxFromTheBuy=0;
 
-        uint256 LPtax=0;
-
-        uint256 totalTax=0;
-
         uint256 platformTax=0;
 
          if(totalBuyTax==0){
             platformTax = (amountT.mul(PlatformfeeOnNoTax)).div(1000);
             amount=amount.sub(platformTax);
         }else{
-            taxFromTheBuy = (amountT.mul(buyTax)).div(100);
+            taxFromTheBuy = (amountT.mul(totalBuyTax)).div(100);
 
             amount = amount.sub(taxFromTheBuy);
 
-            LPtax = (amountT.mul(autoLP)).div(100);
-
-            amount = amount.sub(LPtax);
-
-            totalTax = LPtax.add(taxFromTheBuy);
-
-            platformTax = (totalTax.mul(platformFee)).div(100);
+            platformTax = (taxFromTheBuy.mul(platformFee)).div(100);
 
             taxFromTheBuy = taxFromTheBuy.sub(platformTax);
         }
@@ -343,14 +330,16 @@ contract pool is poolMethods{
         invested[msg.sender]=invested[msg.sender].add(finalTokensGiven.div(10**18));
        
         BUSD.transferFrom(msg.sender,address(this),amount);
-        BUSD.transferFrom(msg.sender,beneficiery,taxFromTheBuy);
+        BUSD.transferFrom(msg.sender,tokenAddress,taxFromTheBuy);
+        currentTradeTax=taxFromTheBuy;
+        
         if(block.timestamp.sub(creationTime)< 30 days && referee!=address(0)){
             uint256 refReward = (platformTax.mul(refFee)).div(100);
             platformTax=platformTax.sub(refReward);
             BUSD.transferFrom(msg.sender, referee, refReward);
         }
+
         BUSD.transferFrom(msg.sender, admin, platformTax);
-        BUSD.transferFrom(msg.sender, address(this), LPtax);
         USDinPool=BUSD.balanceOf(address(this));
 
         token.transfer(msg.sender,finalTokensGiven.div(10**18));
@@ -398,22 +387,15 @@ contract pool is poolMethods{
 
         uint256 taxFromTheSell = 0;
 
-        uint256 LPtax = 0;
-
-        uint256 totalTax = 0;
-
         uint256 platformTax =0;
 
         if(totalSaleTax==0){
             platformTax = (amountT.mul(PlatformfeeOnNoTax)).div(1000);
             amount=amount.sub(platformTax);
         }else{
-            taxFromTheSell = (amountT.mul(saleTax)).div(100);
+            taxFromTheSell = (amountT.mul(totalSaleTax)).div(100);
             amount = amount.sub(taxFromTheSell);
-            LPtax = (amountT.mul(autoLP)).div(100);
-            amount = amount.sub(LPtax);
-            totalTax = LPtax.add(taxFromTheSell);
-            platformTax = (totalTax.mul(platformFee)).div(100);
+            platformTax = (taxFromTheSell.mul(platformFee)).div(100);
             taxFromTheSell = taxFromTheSell.sub(platformTax);
         }
 
@@ -427,7 +409,8 @@ contract pool is poolMethods{
 
         
         
-        BUSD.transfer(beneficiery,(taxFromTheSell.mul(USDperToken)).div(10**18));
+        BUSD.transfer(tokenAddress,(taxFromTheSell.mul(USDperToken)).div(10**18));
+        currentTradeTax=(taxFromTheSell.mul(USDperToken)).div(10**18);
         
         if(block.timestamp.sub(creationTime)< 30 days && referee!=address(0)){
             uint256 refReward = (platformTax.mul(refFee)).div(100);
@@ -438,8 +421,6 @@ contract pool is poolMethods{
         BUSD.transfer(admin,(platformTax.mul(USDperToken)).div(10**18));
        
         BUSD.transfer(msg.sender,finalUSDToGive.div(10**18));
-
-        token.transfer(address(this), LPtax);
 
         USDinPool=BUSD.balanceOf(address(this));
         tokenInPool = token.balanceOf(address(this));
@@ -456,14 +437,12 @@ contract pool is poolMethods{
         emit tokenTraded();
     } //sell the token back to said pool
 
-    function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwner {
+    function addLiquidity(uint256 tokenAmount, uint256 USDAmount) external onlyProjectOwnerOrContract {
         
         if(priceSet){
             
             uint256 tokensRequired = USDAmount.mul(tokenPerUSD());
             
-            // require(tokenAmount==tokensRequired.div(10**18),"Token to USD ratio missmatch");
-
             tokenAmount = tokensRequired.div(10**18);
         }
 
@@ -484,11 +463,11 @@ contract pool is poolMethods{
     }
 
     function viewBuyTax() external view override returns (uint256){
-        return buyTax;
+        return totalBuyTax;
     } //view the buy tax
 
     function viewSellTax() external view override returns (uint256){
-        return saleTax;
+        return totalSaleTax;
     }//view the sell tax
 
     function beneficieryAddress(address) external view override returns(address){
