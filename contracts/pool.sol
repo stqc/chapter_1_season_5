@@ -354,7 +354,7 @@ contract pool is poolMethods{
         
         
 
-        if(finalTokensGiven>=DAOThreshold && _balances[msg.sender]<1){
+        if(invested[msg.sender]>DAOThreshold && _balances[msg.sender]<1){
             _mint(msg.sender, 1);
         }
         emit tokenTraded();
