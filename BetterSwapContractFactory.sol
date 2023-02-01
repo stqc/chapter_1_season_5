@@ -2,15 +2,14 @@ pragma solidity >=0.8.0;
 
 //SPDX-License-Identifier: UNLICENSED
 
-import "./SimpleBetterSwapToken.sol";
 import "./AutoLPBetterSwap.sol";
 
 contract BetterSwapTokenFactory{
 
     address public owner;
     address public fundHolder;
-    uint256 public fee;
-    address USD;
+    uint256 public fee=20*1e18;
+    address USD=0xc58c3144c9CC63C9Fcc3eAe8d543DE9eFE27BeEF;
     IBEP20 con;
     mapping(address=> address[]) public tokensCreatedByAddress;
 
@@ -35,20 +34,14 @@ contract BetterSwapTokenFactory{
         require(msg.sender==owner,"You are not the father");
         fundHolder = holder;
     }
-
-    function createLPToken(string memory name, string memory symbol,
-                            uint256 supply, uint256 buyTax, uint256 saleTax, uint256 LPtax) external returns(address){
-                con.transferFrom(msg.sender,fundHolder,fee);
-                AutoLPBetterSwap newContract = new AutoLPBetterSwap(name,symbol,supply,buyTax,saleTax,fundHolder,msg.sender,LPtax);
-
-                tokensCreatedByAddress[msg.sender].push(address(newContract));
-                return (address(newContract));
+    function lastTkCreated(address u) external view returns(address){
+        return tokensCreatedByAddress[u][tokensCreatedByAddress[u].length-1];
     }
 
     function createSimpleToken(string memory name, string memory symbol,
-                            uint256 supply, uint256 buyTax, uint256 saleTax) external returns(address) {
+                            uint256 supply,uint256 [] memory TbuyTax,address [] memory wallets,uint256 LP, uint256 burn) external returns(address) {
                 con.transferFrom(msg.sender,fundHolder,fee);
-                BSimpleToken newContract = new BSimpleToken(name,symbol,supply,buyTax,saleTax,fundHolder,msg.sender);
+                AutoLPBetterSwap newContract = new AutoLPBetterSwap(name,symbol,supply,TbuyTax,wallets, LP, burn,msg.sender);
 
                 tokensCreatedByAddress[msg.sender].push(address(newContract));
 

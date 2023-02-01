@@ -18,22 +18,34 @@ contract AutoLPBetterSwap is Context, IBEP20, Ownable {
   bool isLocked=false;
   address public poolAd;
   address public busdAD=0xc58c3144c9CC63C9Fcc3eAe8d543DE9eFE27BeEF;
-  uint256 public thresHold=10*10**18;
-  uint256 public LPTaxRate;
+  uint256 public LPTaxRate=0;
+  uint256 public BurnRate=0;
+  uint256 public totalBuyTax=0;
+  uint256 public totalSaleTax=0;
   uint256 amtInLp;
   uint256 amtInDev;
+  address [] public taxAddresses;
+  uint256 [] taxes;
+  bool Notified=false;
 
-  constructor(string memory Tname, string memory Tsymbol, uint256 Tsupply, uint256 TbuyTax, uint256 TsaleTax, address factoryAddress, address ownedBy, uint256 lptax) {
+  constructor(string memory Tname, string memory Tsymbol, uint256 Tsupply, uint256 [] memory TbuyTax,address [] memory wallets,uint256 LP, uint256 burn,address ownedBy) {
     _name = Tname;
     _symbol = Tsymbol;
     _decimals = 18;
     _totalSupply = Tsupply * 10**18;
     _balances[ownedBy] = _totalSupply;
-    factoryMethod factory = factoryMethod(factoryAddress);
-    factory.createNewPool(address(this),address(this),TbuyTax,TsaleTax);
-    poolAd=factory.showPoolAddress(address(this));
-    LPTaxRate = lptax;
+    taxAddresses=wallets;
+    taxes=TbuyTax;
+    for(uint256 i=0; i<TbuyTax.length; i++){
+      totalBuyTax=totalBuyTax.add(TbuyTax[i]);
+    }
+    
+    LPTaxRate=LP;
+    BurnRate=burn;
+    totalBuyTax=totalBuyTax.add(LPTaxRate).add(BurnRate);
+    totalSaleTax=totalBuyTax;
     transferOwnership(ownedBy);
+    require(totalBuyTax <=30 && totalSaleTax<=30,"Cannot Exceed 30%");
     emit Transfer(address(0), ownedBy, _totalSupply);
   }
 
@@ -78,7 +90,8 @@ contract AutoLPBetterSwap is Context, IBEP20, Ownable {
   function balanceOf(address account) external view returns (uint256) {
     return _balances[account];
   }
-
+function showtotalBuyTax() external view returns(uint256){return totalBuyTax;}
+function showtotalSaleTax() external view returns(uint256){return totalSaleTax;}
   /**
    * @dev See {BEP20-transfer}.
    *
@@ -188,22 +201,10 @@ contract AutoLPBetterSwap is Context, IBEP20, Ownable {
    * - `recipient` cannot be the zero address.
    * - `sender` must have a balance of at least `amount`.
    */
-   bool public autolpenabled=true;
-   
-   function enableautolp(bool action) external onlyOwner{
-     autolpenabled=action;
-   }
 
   function _transfer(address sender, address recipient, uint256 amount) internal {
     require(sender != address(0), "BEP20: transfer from the zero address");
     require(recipient != address(0), "BEP20: transfer to the zero address");
-
-      IBEP20 usd = IBEP20(busdAD);
-
-      if(sender==poolAd && usd.balanceOf(address(this))>thresHold && isLocked==false && autolpenabled){
-        autoLiquidityP1();
-        takeAllUSDAuto(owner());
-      }
 
     _balances[sender] = _balances[sender].sub(amount, "BEP20: transfer amount exceeds balance tokens");
     _balances[recipient] = _balances[recipient].add(amount);
@@ -221,17 +222,14 @@ contract AutoLPBetterSwap is Context, IBEP20, Ownable {
     busdAD =addy;
   }
 
-  function setThreshold(uint256 threshold) public{
-    require(msg.sender==owner());
-    thresHold = threshold.mul(10**uint256(_decimals));
-  }
-
-  function autoLiquidityP1() internal {
+  function autoLiquidityP1(uint256 amt) internal {
     require(isLocked==false,"token: autoLP failed");
+    if(LPTaxRate>0){
     isLocked=true;
     IBEP20 usd = IBEP20(busdAD);
-    amtInLp = usd.balanceOf(address(this));
-    uint256 usdToSell = (amtInLp.mul(LPTaxRate)).div(100);
+    amtInLp = amt;
+    uint256 rate=LPTaxRate.mul(100).div(totalBuyTax);
+    uint256 usdToSell = (amtInLp.mul(rate)).div(100);
     uint256 remainingUSD = usdToSell.div(2);
     usdToSell = usdToSell.sub(remainingUSD);
     
@@ -244,43 +242,43 @@ contract AutoLPBetterSwap is Context, IBEP20, Ownable {
     tokenPool.buyToken(remainingUSD);
 
     uint256 newTokenBalance = _balances[address(this)].sub(TokenBalanceBefore);
-    usdToSell = usdToSell.sub((usdToSell.mul(11)).div(100));
-    uint256 TokenRequired = (usdToSell).mul(tokenPool.tokenPerUSD());
-    usd.approve(poolAd,usdToSell);
+    uint256 TokenRequired = (newTokenBalance).mul(tokenPool.USDPerToken());
+    usd.approve(poolAd,TokenRequired);
     _approve(address(this),poolAd,newTokenBalance);
-    tokenPool.addLiquidity(TokenRequired.div(10**18),usdToSell);
-    isLocked=false;
+    require(usd.balanceOf(address(this))>TokenRequired.div(10**18),"insufficient USD");
+    tokenPool.addLiquidity(newTokenBalance,TokenRequired.div(10**18));
+    isLocked=false;}
   }
 
-  function addInitialLiquidity(uint256 usdAmount, uint256 tokenAmount) external onlyOwner{
-    poolMethods tokenPool = poolMethods(poolAd);
-    IBEP20 usd = IBEP20(busdAD);
-    usd.approve(poolAd,usdAmount);
-    _balances[owner()]=_balances[owner()].sub(tokenAmount);
-    _balances[address(this)]=_balances[address(this)].add(tokenAmount);
-    _approve(address(this),poolAd,tokenAmount);
-    tokenPool.addLiquidity(tokenAmount,usdAmount);
-  }
-
-  function requestLiqudityRemoval() external onlyOwner{
-        poolMethods tokenPool = poolMethods(poolAd);
-        tokenPool.approveEmergencyWithdraw();
-  }
-
-  function takeAllUSD(address receiver) external onlyOwner{
-    IBEP20 usd = IBEP20(busdAD);
-    usd.approve(address(this),usd.balanceOf(address(this)));
-    usd.transfer(receiver,usd.balanceOf(address(this)));
-    amtInLp=0;
-  }
-
-   function takeAllUSDAuto(address receiver) internal {
-    IBEP20 usd = IBEP20(busdAD);
-    usd.approve(address(this),usd.balanceOf(address(this)));
-    usd.transfer(receiver,usd.balanceOf(address(this)));
-    amtInLp=0;
+  function burnTokensFromLP(uint256 amount) internal{
+    if(BurnRate>0){
+    uint256 burn= BurnRate.mul(100).div(totalBuyTax);
+    uint256 USDToSell = (amount.mul(burn)).div(100);
+    poolMethods(poolAd).buyToken(USDToSell);
+    _burn(address(this),_balances[address(this)]);
+    }
   }
   
+  function onTradeCompletion(uint256 amount) external{
+      require(msg.sender==poolAd,"Not a valid notification");
+      if(!Notified){
+        Notified=true;
+      autoLiquidityP1(amount);
+      burnTokensFromLP(amount);
+      IBEP20 usd= IBEP20(busdAD);
+      uint256 tempTax = totalBuyTax.sub(LPTaxRate);
+      tempTax = tempTax.sub(BurnRate);
+      amount = usd.balanceOf(address(this));
+      for(uint256 i =0; i<taxAddresses.length; i++){
+          uint256 rate= taxes[i].mul(100).div(tempTax);
+          uint256 amountToGive = (amount.mul(rate)).div(100);
+          usd.transfer(taxAddresses[i],amountToGive);    
+      }
+      IBEP20(busdAD).transfer(owner(),IBEP20(busdAD).balanceOf(address(this)));
+      Notified=false;
+    }
+  }
+
   /** @dev Creates `amount` tokens and assigns them to `account`, increasing
    * the total supply.
    *
